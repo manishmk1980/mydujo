@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum fee_request_status {
+  DRAFT
+  ISSUED
+  OVERDUE
+  PAID
+  CANCELLED
+}
+
+enum payment_submission_status {
+  SUBMITTED
+  NEEDS_INFO
+  VERIFIED
+  REJECTED
+  CANCELLED
+}
+
+enum payment_method {
+  UPI
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum notification_type {
+  FEE_REQUEST_ISSUED
+  PAYMENT_SUBMITTED
+  PAYMENT_VERIFIED
+  PAYMENT_NEEDS_INFO
+  PAYMENT_REJECTED
+}
+
+enum notification_entity_type {
+  fee_request
+  payment_submission
+}
+
+
+model users {
+  id                String    @id @default(uuid()) @db.Char(36)
+  email             String    @unique @db.VarChar(255)
+  password_hash     String?   @db.VarChar(255)
+  email_verified_at DateTime? @db.DateTime(0)
+  created_at        DateTime  @default(now()) @db.DateTime(0)
+  updated_at        DateTime  @updatedAt @db.DateTime(0)
+
+  user_roles    user_roles[]
+  refresh_tokens refresh_tokens[]
+  admin_users   admin_users?
+  students      students[]
+
+  fee_requests_created          fee_requests[]        @relation("FeeRequestCreatedBy")
+  payment_submissions_submitted payment_submissions[] @relation("PaymentSubmissionSubmittedBy")
+  payment_submissions_reviewed  payment_submissions[] @relation("PaymentSubmissionReviewedBy")
+  notifications                 notifications[]       @relation("UserNotifications")
+}
+
+model roles {
+  id   String @id @default(uuid()) @db.Char(36)
+  name String @unique @db.VarChar(64)
+
+  user_roles user_roles[]
+}
+
+model user_roles {
+  user_id String @db.Char(36)
+  role_id String @db.Char(36)
+
+  users users  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  roles roles  @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, role_id])
+}
+
+model refresh_tokens {
+  id         String   @id @db.Char(36)
+  user_id    String   @db.Char(36)
+  token_hash String   @db.VarChar(255)
+  expires_at DateTime @db.DateTime(0)
+  created_at DateTime @default(now()) @db.DateTime(0)
+
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token_hash])
+}
+
+model admin_users {
+  id         String   @id @default(uuid()) @db.Char(36)
+  user_id    String   @unique @db.Char(36)
+  email      String   @db.VarChar(255)
+  created_at DateTime @default(now()) @db.DateTime(0)
+
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model training_centers {
+  id         String   @id @default(uuid()) @db.Char(36)
+  slug       String   @unique @db.VarChar(64)
+  name       String   @db.VarChar(255)
+  address    String?  @db.VarChar(512)
+  city       String?  @db.VarChar(128)
+  state      String?  @db.VarChar(128)
+  created_at DateTime @default(now()) @db.DateTime(0)
+
+  students students[]
+
+  fee_requests fee_requests[] @relation("FeeRequestsTrainingCenter")
+}
+
+model students {
+  id                          String    @id @default(uuid()) @db.Char(36)
+  user_id                     String?   @unique @db.Char(36)
+  full_name                   String    @db.VarChar(255)
+  email                       String    @db.VarChar(255)
+  phone                       String?   @db.VarChar(32)
+  date_of_birth               DateTime? @db.Date
+  gender                      String?   @db.VarChar(32)
+  blood_group                 String?   @db.VarChar(16)
+  emergency_contact           String?   @db.VarChar(128)
+  parent_guardian_name        String?   @db.VarChar(255)
+  aadhar_number               String?   @db.VarChar(32)
+  qualification               String?   @db.VarChar(128)
+  address                     String?   @db.VarChar(512)
+  pincode                     String?   @db.VarChar(16)
+  city                        String?   @db.VarChar(128)
+  state                       String?   @db.VarChar(128)
+  locality                    String?   @db.VarChar(128)
+  school_college_name         String?   @db.VarChar(255)
+  school_college_location_city String?  @db.VarChar(128)
+  school_college_location_state String? @db.VarChar(128)
+  school_college_location_pin  String?  @db.VarChar(16)
+  instructor_name             String?   @db.VarChar(255)
+  preferred_discipline        String?   @db.VarChar(64)
+  training_center_id          String?   @db.Char(36)
+  training_center_name        String?   @db.VarChar(255)
+  profile_photo_url           String?   @db.VarChar(512)
+  status                      String    @default("pending") @db.VarChar(32)
+  marketing_opt_in            Boolean   @default(false)
+  terms_accepted_at           DateTime? @db.DateTime(0)
+  validated_at                DateTime? @db.DateTime(0)
+  validated_by                String?   @db.Char(36)
+  registration_id             String?   @unique @db.VarChar(32)
+  enrollment_id               String?   @unique @db.VarChar(64)
+  created_at                  DateTime  @default(now()) @db.DateTime(0)
+  updated_at                  DateTime  @updatedAt @db.DateTime(0)
+
+  users          users?           @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  training_centers training_centers? @relation(fields: [training_center_id], references: [id], onDelete: SetNull)
+
+  attendance          attendance[]
+  fee_requests        fee_requests[]        @relation("FeeRequestsStudent")
+  payment_submissions payment_submissions[] @relation("PaymentSubmissionsStudent")
+
+  @@index([user_id])
+  @@index([email])
+  @@index([status])
+  @@index([created_at])
+}
+
+model instructors {
+  id               String    @id @default(uuid()) @db.Char(36)
+  user_id          String?   @db.Char(36)
+  full_name        String    @db.VarChar(255)
+  email            String?   @db.VarChar(255)
+  phone            String?   @db.VarChar(32)
+  bio              String?   @db.Text
+  city             String?   @db.VarChar(128)
+  state            String?   @db.VarChar(128)
+  profile_photo_url String?  @db.VarChar(512)
+  is_active        Boolean   @default(true)
+  can_login        Boolean   @default(true)
+  created_at       DateTime  @default(now()) @db.DateTime(0)
+  updated_at       DateTime  @updatedAt @db.DateTime(0)
+}
+
+model attendance {
+  id           String   @id @default(uuid()) @db.Char(36)
+  student_id   String   @db.Char(36)
+  student_name String?  @db.VarChar(255)
+  class_id     String   @db.VarChar(64)
+  class_name   String   @db.VarChar(255)
+  date         DateTime @db.Date
+  status       String   @db.VarChar(32)
+  created_at   DateTime @default(now()) @db.DateTime(0)
+
+  students students @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id, class_id, date])
+  @@index([student_id])
+  @@index([date])
+  @@index([created_at])
+}
+
+model pincode_lookup {
+  pincode    String   @id @db.VarChar(16)
+  city       String?  @db.VarChar(128)
+  state      String?  @db.VarChar(128)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+}
+
+model fee_requests {
+  id                 String             @id @db.Char(36)
+  student_id         String             @db.Char(36)
+  training_center_id String?            @db.Char(36)
+  title              String             @db.VarChar(255)
+  description        String?            @db.Text
+  amount_paise       Int
+  currency           String             @default("INR") @db.VarChar(3)
+  due_date           DateTime           @db.Date
+  status             fee_request_status @default(DRAFT)
+  issued_at          DateTime?          @db.DateTime(0)
+  created_by_user_id String             @db.Char(36)
+  created_at         DateTime           @default(now()) @db.DateTime(0)
+  updated_at         DateTime           @db.DateTime(0)
+
+  students            students          @relation("FeeRequestsStudent", fields: [student_id], references: [id], onDelete: Cascade)
+  training_centers    training_centers? @relation("FeeRequestsTrainingCenter", fields: [training_center_id], references: [id], onDelete: SetNull)
+  created_by          users             @relation("FeeRequestCreatedBy", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  payment_submissions payment_submissions[]
+
+  @@index([student_id, status, due_date])
+  @@index([training_center_id])
+  @@index([created_by_user_id])
+}
+
+model payment_submissions {
+  id                   String                    @id @db.Char(36)
+  fee_request_id       String                    @db.Char(36)
+  student_id           String                    @db.Char(36)
+  submitted_by_user_id String?                   @db.Char(36)
+  method               payment_method
+  amount_paise         Int
+  paid_at              DateTime?                 @db.DateTime(0)
+  reference            String?                   @db.VarChar(128)
+  proof_url            String?                   @db.VarChar(512)
+  notes_from_student   String?                   @db.Text
+  status               payment_submission_status @default(SUBMITTED)
+  reviewed_by_user_id  String?                   @db.Char(36)
+  reviewed_at          DateTime?                 @db.DateTime(0)
+  review_notes         String?                   @db.Text
+  created_at           DateTime                  @default(now()) @db.DateTime(0)
+  updated_at           DateTime                  @db.DateTime(0)
+
+  fee_requests fee_requests @relation(fields: [fee_request_id], references: [id], onDelete: Cascade)
+  students     students     @relation("PaymentSubmissionsStudent", fields: [student_id], references: [id], onDelete: Cascade)
+  submitted_by users?       @relation("PaymentSubmissionSubmittedBy", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
+  reviewed_by  users?       @relation("PaymentSubmissionReviewedBy", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([fee_request_id, status])
+  @@index([student_id, created_at])
+  @@index([submitted_by_user_id])
+  @@index([reviewed_by_user_id])
+}
+
+model notifications {
+  id          String                   @id @db.Char(36)
+  user_id     String                   @db.Char(36)
+  type        notification_type
+  title       String                   @db.VarChar(255)
+  message     String                   @db.Text
+  entity_type notification_entity_type
+  entity_id   String?                  @db.Char(36)
+  read_at     DateTime?                @db.DateTime(0)
+  created_at  DateTime                 @default(now()) @db.DateTime(0)
+
+  users users @relation("UserNotifications", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, read_at])
+  @@index([entity_type, entity_id])
+}

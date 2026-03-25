@@ -1,0 +1,41 @@
+[
+  {
+    "id": "inst-001",
+    "userId": "user-instructor-001",
+    "fullName": "Rajesh Kumar",
+    "email": "rajesh.kumar@mydojo.in",
+    "phone": "+91 98765 43210",
+    "bio": "Black belt in Shotokan Karate. 15+ years teaching experience.",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "profilePhotoUrl": null,
+    "isActive": true,
+    "canLogin": true
+  },
+  {
+    "id": "inst-002",
+    "userId": "user-instructor-002",
+    "fullName": "Priya Sharma",
+    "email": "priya.sharma@mydojo.in",
+    "phone": "+91 98765 43211",
+    "bio": "National-level Judo competitor. Certified Kodokan instructor.",
+    "city": "New Delhi",
+    "state": "Delhi",
+    "profilePhotoUrl": null,
+    "isActive": true,
+    "canLogin": true
+  },
+  {
+    "id": "inst-003",
+    "userId": "user-instructor-003",
+    "fullName": "Arun Patel",
+    "email": "arun.patel@mydojo.in",
+    "phone": "+91 98765 43212",
+    "bio": "Self-defense and fitness specialist. Trained in multiple disciplines.",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "profilePhotoUrl": null,
+    "isActive": true,
+    "canLogin": true
+  }
+]

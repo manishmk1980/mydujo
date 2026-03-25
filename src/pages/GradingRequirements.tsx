@@ -14,7 +14,6 @@ import {
   Target,
   Users
 } from 'lucide-react';
-import { Sidebar } from '../components/Sidebar';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -66,10 +65,7 @@ export default function GradingRequirements() {
   const [expandedBelt, setExpandedBelt] = useState<string | null>('Brown Belt (1st Kyu)');
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background-light">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+    <div className="space-y-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <Link to="/grading" className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary transition-colors mb-2">
@@ -287,8 +283,6 @@ export default function GradingRequirements() {
               </button>
             </div>
           </div>
-        </div>
-      </main>
     </div>
   );
 }
