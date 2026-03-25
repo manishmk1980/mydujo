@@ -1,0 +1,5 @@
+# https://kreatorbox.com/mdpl-qa/
+User-agent: *
+Allow: /
+
+Sitemap: https://kreatorbox.com/mdpl-qa/sitemap.xml

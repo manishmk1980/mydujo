@@ -1,11 +1,11 @@
 import React from 'react';
-import { 
-  Users, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
-  Search, 
-  Filter, 
+import {
+  Users,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Search,
+  Filter,
   ChevronRight,
   User,
   Medal,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { cn } from '../lib/utils';
+import { AspectRatio } from '../components/ui/aspect-ratio';
 
 const pendingApprovals = [
   { id: 'STU-102', name: 'Alex Chen', currentBelt: 'Brown', targetBelt: 'Black', progress: 85, attendance: 102, lastGrading: '6 months ago', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI' },
@@ -60,9 +61,9 @@ export default function InstructorQueue() {
                 <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-4" />
-                    <input 
-                      type="text" 
-                      placeholder="Search students..." 
+                    <input
+                      type="text"
+                      placeholder="Search students..."
                       className="w-full pl-10 pr-4 py-2 bg-slate-50 border-slate-200 rounded-lg text-sm focus:border-primary focus:ring-0"
                     />
                   </div>
@@ -95,7 +96,11 @@ export default function InstructorQueue() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <img src={stu.avatar} alt={stu.name} className="size-10 rounded-full object-cover border border-slate-200" />
+                              <div className="size-10 rounded-full object-cover border border-slate-200 overflow-hidden shrink-0">
+                                <AspectRatio ratio={1 / 1}>
+                                  <img src={stu.avatar} alt={stu.name} className="w-full h-full object-cover" />
+                                </AspectRatio>
+                              </div>
                               <div>
                                 <p className="text-sm font-bold text-slate-900">{stu.name}</p>
                                 <p className="text-[10px] text-slate-400 font-medium uppercase">Active Member</p>
@@ -141,11 +146,15 @@ export default function InstructorQueue() {
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden sticky top-8">
                 <div className="p-6 bg-slate-900 text-white">
                   <div className="flex items-center gap-4 mb-6">
-                    <img 
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI" 
-                      alt="Alex Chen" 
-                      className="size-16 rounded-full border-2 border-primary object-cover"
-                    />
+                    <div className="size-16 rounded-full border-2 border-primary object-cover overflow-hidden shrink-0">
+                      <AspectRatio ratio={1 / 1}>
+                        <img
+                          src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI"
+                          alt="Alex Chen"
+                          className="w-full h-full object-cover"
+                        />
+                      </AspectRatio>
+                    </div>
                     <div>
                       <h3 className="text-xl font-bold">Alex Chen</h3>
                       <p className="text-slate-400 text-sm">Brown Belt • 1st Kyu</p>
@@ -188,7 +197,7 @@ export default function InstructorQueue() {
 
                   <section>
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Instructor Feedback</h4>
-                    <textarea 
+                    <textarea
                       className="w-full bg-slate-50 border-slate-200 rounded-xl p-3 text-sm focus:border-primary focus:ring-0 h-24"
                       placeholder="Add private notes or feedback for the student..."
                     ></textarea>

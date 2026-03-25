@@ -1,0 +1,6 @@
+[
+  { "id": "role-super-admin", "name": "SUPER_ADMIN" },
+  { "id": "role-admin", "name": "ADMIN" },
+  { "id": "role-instructor", "name": "INSTRUCTOR" },
+  { "id": "role-student", "name": "STUDENT" }
+]

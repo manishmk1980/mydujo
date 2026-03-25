@@ -1,0 +1,23 @@
+[
+  {
+    "id": "karate_shotokan",
+    "name": "Karate (Shotokan)",
+    "nameHi": "कराटे (शोटोकन)",
+    "description": "Traditional Japanese karate style emphasizing strong stances, linear techniques, and kata.",
+    "descriptionHi": "पारंपरिक जापानी कराटे शैली जो मजबूत स्टैंस, रैखिक तकनीक और काटा पर जोर देती है।"
+  },
+  {
+    "id": "judo_kodokan",
+    "name": "Judo (Kodokan)",
+    "nameHi": "जूडो (कोडोकन)",
+    "description": "Modern martial art and Olympic sport focused on throws, pins, and submissions.",
+    "descriptionHi": "आधुनिक मार्शल आर्ट और ओलंपिक खेल जो थ्रो, पिन और सबमिशन पर केंद्रित है।"
+  },
+  {
+    "id": "self_defense",
+    "name": "Self Defense",
+    "nameHi": "स्वरक्षा",
+    "description": "Practical techniques for personal safety and situational awareness.",
+    "descriptionHi": "व्यक्तिगत सुरक्षा और स्थितिजन्य जागरूकता के लिए व्यावहारिक तकनीकें।"
+  }
+]

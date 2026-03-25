@@ -1,0 +1,29 @@
+[
+  {
+    "id": "tc-001",
+    "slug": "mydojo-mumbai-central",
+    "name": "MyDojo Mumbai Central",
+    "address": "Shop 12, Central Plaza, Lamington Road",
+    "pincode": "400008",
+    "city": "Mumbai",
+    "state": "Maharashtra"
+  },
+  {
+    "id": "tc-002",
+    "slug": "mydojo-delhi-saket",
+    "name": "MyDojo Delhi Saket",
+    "address": "Block A, Select Citywalk Mall, Saket",
+    "pincode": "110017",
+    "city": "New Delhi",
+    "state": "Delhi"
+  },
+  {
+    "id": "tc-003",
+    "slug": "mydojo-bangalore-koramangala",
+    "name": "MyDojo Bangalore Koramangala",
+    "address": "80 Feet Road, Koramangala 4th Block",
+    "pincode": "560034",
+    "city": "Bengaluru",
+    "state": "Karnataka"
+  }
+]

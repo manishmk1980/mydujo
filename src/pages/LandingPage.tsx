@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  ArrowRight, 
-  ChevronRight, 
-  Star, 
-  Shield, 
-  Dumbbell, 
+import {
+  ArrowRight,
+  ChevronRight,
+  Star,
+  Shield,
+  Dumbbell,
   Brain,
   MapPin,
   Send,
@@ -20,17 +20,19 @@ import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import { AspectRatio } from '../components/ui/aspect-ratio';
+import mdplHeroVideo from '@/assets/video/mdpl-vid1.webm';
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background-light">
       <Header />
-      
+
       <main>
         {/* Hero Section */}
         <section className="relative w-full px-6 py-12 md:py-20 flex flex-col items-center">
           <div className="max-w-7xl w-full grid lg:grid-cols-2 gap-12 items-center">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="flex flex-col gap-8"
@@ -60,29 +62,37 @@ export default function LandingPage() {
                 </button>
               </div>
             </motion.div>
-            
-            <motion.div 
+
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="relative"
             >
-              <div className="aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl relative group">
-                <img 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ_Zq-xIcS-0smKQjAd2ynBN6BmSJKWnjJEsVo5ylQFBkGBseaZBuzCASqQXpORrTjwJCkXNBoQrl0xdZCioKkgzOzjBydJySKVDDqR1RZHeZ1EKmVtbQdHRVMPnU3cLgqY-AusuxjnyYEeQ4kfxZMBTGNCKRiqs6SBuaNwtbK8NPe6j2kLJh7sZJgDHgHl2oohuEtKwoKL_-EAlwgASsyUR3IcgREbwRgShW3VqjEcYCRFk1oMtF2MCbuaPTH4VQv-fW_jPaHXys" 
-                  alt="Martial arts students"
-                />
+              <div className="rounded-3xl overflow-hidden shadow-2xl relative group">
+                <AspectRatio ratio={4 / 5}>
+                  <video
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    src={mdplHeroVideo}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    aria-label="Martial arts training"
+                  />
+                </AspectRatio>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
                 <div className="absolute bottom-8 left-8 right-8 p-6 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
                   <div className="flex items-center gap-4">
                     <div className="flex -space-x-3">
                       {[1, 2, 3].map((i) => (
                         <div key={i} className="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-slate-200">
-                          <img 
-                            className="w-full h-full object-cover" 
-                            src={`https://picsum.photos/seed/${i}/100/100`} 
-                            alt={`User ${i}`}
-                          />
+                          <AspectRatio ratio={1 / 1}>
+                            <img
+                              className="w-full h-full object-cover"
+                              src={`https://picsum.photos/seed/${i}/100/100`}
+                              alt={`User ${i}`}
+                            />
+                          </AspectRatio>
                         </div>
                       ))}
                     </div>
@@ -114,7 +124,7 @@ export default function LandingPage() {
                 { icon: Shield, title: 'Self-Defense', desc: 'Equip yourself with practical techniques and awareness to stay safe and confident in any environment.' },
                 { icon: Brain, title: 'Character Building', desc: 'Develop iron-clad discipline, respect for others, and laser-like focus that translates to every area of life.' }
               ].map((benefit, i) => (
-                <motion.div 
+                <motion.div
                   key={i}
                   whileHover={{ y: -5 }}
                   className="p-8 rounded-2xl bg-background-light border border-slate-200 hover:border-primary transition-colors group"
@@ -144,7 +154,9 @@ export default function LandingPage() {
             </div>
             <div className="grid md:grid-cols-2 gap-8">
               <div className="relative overflow-hidden rounded-3xl group">
-                <img className="w-full h-[400px] object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyP9ZQeR-hSBehsWtYh8TPSjSSyIhM6uPCXnNIf6aJ6zb6LXsbj_5rw4rEMqoHJuC2kY7rhJOe46Z6BnvYlV4yj8qTLNJHStvy2AVyVNKp_iAR2E9-C7EUzNIx4lBnPaITEW2mEzXVMPSSplxURqBEu8RhPj89L4I50ckEzZe5PDH3fKrEPZabtrZYc13jSp8xTIQ4PSifLqWLRrANzkeDcJkpHPDDY40XCdFbDaRVy3yH-X1Sraq0qJwmSFEA09-r1qzyaVARMFQ" alt="Karate" />
+                <AspectRatio ratio={16 / 9}>
+                  <img className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyP9ZQeR-hSBehsWtYh8TPSjSSyIhM6uPCXnNIf6aJ6zb6LXsbj_5rw4rEMqoHJuC2kY7rhJOe46Z6BnvYlV4yj8qTLNJHStvy2AVyVNKp_iAR2E9-C7EUzNIx4lBnPaITEW2mEzXVMPSSplxURqBEu8RhPj89L4I50ckEzZe5PDH3fKrEPZabtrZYc13jSp8xTIQ4PSifLqWLRrANzkeDcJkpHPDDY40XCdFbDaRVy3yH-X1Sraq0qJwmSFEA09-r1qzyaVARMFQ" alt="Karate" />
+                </AspectRatio>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent flex flex-col justify-end p-8">
                   <div className="bg-primary px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-4">Striking Art</div>
                   <h3 className="text-3xl font-bold text-white mb-2">Traditional Karate</h3>
@@ -153,7 +165,9 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="relative overflow-hidden rounded-3xl group">
-                <img className="w-full h-[400px] object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzEatoQoO855awH0yFUUej-JfDwEEds4FcHI-ZPkMha1QAdT3BJ1Br42Xcoi7eB-cLRSPF-07AxwaxIt1CNOZBSAst3BfiWoKEjAws4YaLfVRhVvZIdhTTIPny-GU-cDUnqwHbOm_tKi5aer-ju52w_K3_3MMi92JlNyuzDFs4lf-GD0BttuCrmOeI0MYh0gu4hv71z0BKa-7b2IHPaBbBdeXfRGlWo6eZYRsinXVmB3TpuSbjdCLwMlKu5qd85b-I4gq4B6yDUag" alt="Judo" />
+                <AspectRatio ratio={16 / 9}>
+                  <img className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzEatoQoO855awH0yFUUej-JfDwEEds4FcHI-ZPkMha1QAdT3BJ1Br42Xcoi7eB-cLRSPF-07AxwaxIt1CNOZBSAst3BfiWoKEjAws4YaLfVRhVvZIdhTTIPny-GU-cDUnqwHbOm_tKi5aer-ju52w_K3_3MMi92JlNyuzDFs4lf-GD0BttuCrmOeI0MYh0gu4hv71z0BKa-7b2IHPaBbBdeXfRGlWo6eZYRsinXVmB3TpuSbjdCLwMlKu5qd85b-I4gq4B6yDUag" alt="Judo" />
+                </AspectRatio>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent flex flex-col justify-end p-8">
                   <div className="bg-primary px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-4">Grappling Art</div>
                   <h3 className="text-3xl font-bold text-white mb-2">Kodokan Judo</h3>
@@ -179,7 +193,7 @@ export default function LandingPage() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-              <motion.div 
+              <motion.div
                 whileHover={{ y: -10 }}
                 className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-100 relative overflow-hidden group"
               >
@@ -196,7 +210,7 @@ export default function LandingPage() {
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 whileHover={{ y: -10 }}
                 className="bg-slate-900 rounded-[3rem] p-10 shadow-xl text-white relative overflow-hidden group"
               >
@@ -220,7 +234,7 @@ export default function LandingPage() {
         <section className="py-24 bg-white px-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -235,7 +249,7 @@ export default function LandingPage() {
 
             <div className="grid lg:grid-cols-3 gap-8 mb-16">
               {/* Performer of the Month */}
-              <motion.div 
+              <motion.div
                 whileHover={{ y: -10 }}
                 className="lg:col-span-2 bg-slate-900 rounded-[3rem] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl"
               >
@@ -243,11 +257,13 @@ export default function LandingPage() {
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
                   <div className="relative">
                     <div className="size-48 rounded-full border-4 border-primary overflow-hidden shadow-2xl">
-                      <img 
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI" 
-                        alt="Performer of the Month"
-                        className="w-full h-full object-cover"
-                      />
+                      <AspectRatio ratio={1 / 1}>
+                        <img
+                          src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI"
+                          alt="Performer of the Month"
+                          className="w-full h-full object-cover"
+                        />
+                      </AspectRatio>
                     </div>
                     <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-primary text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
                       Performer of the Month
@@ -283,13 +299,15 @@ export default function LandingPage() {
                     { name: 'Rahul M.', category: 'Spirit & Discipline', belt: 'Orange Belt', color: 'text-orange-500' },
                     { name: 'Elena R.', category: 'Most Improved', belt: 'Green Belt', color: 'text-green-500' }
                   ].map((student, i) => (
-                    <motion.div 
+                    <motion.div
                       key={i}
                       whileHover={{ x: 10 }}
                       className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-4 group cursor-default"
                     >
                       <div className="size-12 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0">
-                        <img src={`https://picsum.photos/seed/${student.name}/100/100`} alt={student.name} className="w-full h-full object-cover" />
+                        <AspectRatio ratio={1 / 1}>
+                          <img src={`https://picsum.photos/seed/${student.name}/100/100`} alt={student.name} className="w-full h-full object-cover" />
+                        </AspectRatio>
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-black text-slate-900">{student.name}</p>
@@ -323,14 +341,16 @@ export default function LandingPage() {
                   { student: 'Marcus T.', event: 'State Judo Invitational', achievement: '1st Place (Heavyweight)', icon: Trophy, color: 'text-amber-500', photo: 'https://picsum.photos/seed/marcus/200/200' },
                   { student: 'Lisa W.', event: 'State Judo Invitational', achievement: 'Merit Award (Technical)', icon: Star, color: 'text-primary', photo: 'https://picsum.photos/seed/lisa/200/200' }
                 ].map((item, i) => (
-                  <motion.div 
+                  <motion.div
                     key={i}
                     whileHover={{ scale: 1.05 }}
                     className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center group"
                   >
                     <div className="relative mb-4">
                       <div className="size-20 rounded-2xl overflow-hidden border-2 border-slate-100 group-hover:border-primary transition-colors">
-                        <img src={item.photo} alt={item.student} className="w-full h-full object-cover" />
+                        <AspectRatio ratio={1 / 1}>
+                          <img src={item.photo} alt={item.student} className="w-full h-full object-cover" />
+                        </AspectRatio>
                       </div>
                       <div className={cn("absolute -bottom-2 -right-2 size-8 rounded-xl bg-white shadow-lg flex items-center justify-center border border-slate-50", item.color)}>
                         <item.icon className="size-4" />
@@ -353,7 +373,7 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-16">
               <div className="max-w-2xl">
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -413,7 +433,7 @@ export default function LandingPage() {
                   color: 'border-slate-900'
                 }
               ].map((event, i) => (
-                <motion.div 
+                <motion.div
                   key={i}
                   whileHover={{ y: -5 }}
                   className={cn(
@@ -436,7 +456,7 @@ export default function LandingPage() {
                       <MapPin className="size-4 shrink-0" />
                       {event.location}
                     </div>
-                    
+
                     <div className="pt-4 border-t border-slate-50 space-y-3">
                       <div className="flex items-start gap-3">
                         <div className="mt-1">
@@ -497,8 +517,10 @@ export default function LandingPage() {
                   ))}
                 </div>
               </div>
-              <div className="relative h-[500px] rounded-3xl overflow-hidden shadow-2xl">
-                <img className="w-full h-full object-cover grayscale opacity-60" src="https://picsum.photos/seed/map/800/600" alt="Map" />
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl">
+                <AspectRatio ratio={4 / 3}>
+                  <img className="w-full h-full object-cover grayscale opacity-60" src="https://picsum.photos/seed/map/800/600" alt="Map" />
+                </AspectRatio>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="relative">
                     <div className="absolute -inset-4 bg-primary/20 rounded-full animate-pulse"></div>

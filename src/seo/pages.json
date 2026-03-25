@@ -1,0 +1,82 @@
+[
+  {
+    "path": "",
+    "title": "MyDojo | India's Premier Martial Arts Academy Management",
+    "description": "The leading martial arts management platform in India. Manage Karate, Judo, and MMA dojos with multi-lingual support and secure INR payments.",
+    "keywords": "martial arts india, karate dojo management, judo academy india, dojo software india, martial arts training mumbai delhi bangalore",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "login",
+    "title": "Student Login | MyDojo",
+    "description": "Sign in to your MyDojo student account to manage belt grading, fees, attendance, and training programs.",
+    "keywords": "mydojo login, martial arts student login, karate academy login india",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "register",
+    "title": "Register Your Dojo | MyDojo",
+    "description": "Register your martial arts academy on MyDojo. Onboard students, track grading, fees, and attendance in one place.",
+    "keywords": "dojo registration india, martial arts academy signup, karate school software",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "about",
+    "title": "About MDPL | Martial Arts Excellence in India",
+    "description": "Learn about MDPL's mission, instructors, and structured martial arts training across India.",
+    "keywords": "about mdpl, martial arts academy india, karate judo training india",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "programs",
+    "title": "Programs | MDPL Martial Arts Training",
+    "description": "Explore MDPL programs including karate, judo, self-defense, and competition coaching.",
+    "keywords": "martial arts programs india, karate classes india, judo training",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "instructors",
+    "title": "Our Instructors | MyDojo",
+    "description": "Meet certified martial arts instructors across MyDojo partner academies in India.",
+    "keywords": "martial arts instructors india, karate sensei, judo coach",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "events",
+    "title": "Events | MDPL Tournaments and Camps",
+    "description": "Check upcoming martial arts events, camps, and competitions hosted by MDPL.",
+    "keywords": "martial arts events india, karate tournaments india, mdpl events",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "contact",
+    "title": "Contact MDPL | Admissions and Enquiries",
+    "description": "Contact MDPL for admissions, schedules, self-defense workshops, and dojo enquiries.",
+    "keywords": "contact martial arts academy india, mdpl contact, karate admissions",
+    "robots": "index, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "forgot-password",
+    "title": "Forgot Password | MyDojo",
+    "description": "Reset your MyDojo account password securely.",
+    "keywords": "mydojo password reset",
+    "robots": "noindex, follow",
+    "ogType": "website"
+  },
+  {
+    "path": "reset-password",
+    "title": "Reset Password | MyDojo",
+    "description": "Set a new password for your MyDojo account.",
+    "keywords": "mydojo new password",
+    "robots": "noindex, follow",
+    "ogType": "website"
+  }
+]

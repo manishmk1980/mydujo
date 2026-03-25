@@ -1,56 +1,109 @@
 import React from 'react';
-import { 
-  Calendar, 
-  Trophy, 
-  Flame, 
-  Bell, 
-  ChevronRight, 
-  Clock, 
+import { Link } from 'react-router-dom';
+import {
+  Calendar,
+  Trophy,
+  Flame,
+  Bell,
+  Clock,
   CheckCircle2,
-  TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Info
 } from 'lucide-react';
-import { Sidebar } from '../components/Sidebar';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAttendance } from '../context/AttendanceContext';
 import { useAuth } from '../context/AuthContext';
+import { AspectRatio } from '../components/ui/aspect-ratio';
+import { feesService, type FeeRequestDTO } from '../services/feesService';
+
+function formatRelativeDate(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 60) return 'Just now';
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+}
 
 export default function Dashboard() {
-  const { getStudentAttendance } = useAttendance();
-  const { user } = useAuth();
-  const attendance = getStudentAttendance(user?.username || 'demo');
-  const attendanceRate = (attendance.present / (attendance.total || 1)) * 100;
-  const skillMastery = 78; // Mock for now
-  const overallProgress = Math.round((attendanceRate + skillMastery) / 2);
+  const { attendance: attendanceRecords } = useAttendance();
+  const { user, student } = useAuth();
+  const studentId = user?.studentId ?? student?.id;
+
+  // Derive present/total: approved = present, total = all records
+  const approved = attendanceRecords.filter((r) => r.status === 'approved').length;
+  const total = attendanceRecords.length;
+  const attendance = { present: approved, total };
+  const attendanceRate = (total || 1) > 0 ? (approved / total) * 100 : 0;
+  const displayName = student?.full_name || user?.name || 'Student';
+  const [feeRequests, setFeeRequests] = React.useState<FeeRequestDTO[]>([]);
+
+  const recentActivityFromAttendance = attendanceRecords
+    .filter((r) => r.status === 'approved')
+    .sort((a, b) => new Date(b.attendance_date || 0).getTime() - new Date(a.attendance_date || 0).getTime())
+    .slice(0, 5)
+    .map((r) => ({
+      icon: CheckCircle2,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+      title: 'Attendance Logged',
+      desc: r.class_session?.title || 'Class',
+      time: r.attendance_date ? formatRelativeDate(r.attendance_date) : '',
+    }));
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const rows = await feesService.getMyFeeRequests();
+        if (alive) setFeeRequests(rows);
+      } catch {
+        if (alive) setFeeRequests([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const openFeeRequests = feeRequests.filter((r) => {
+    const status = r.computed_status ?? r.status;
+    return status === 'ISSUED' || status === 'OVERDUE';
+  });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background-light">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+    <div className="space-y-8">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Osu, Arjun!</h2>
-              <p className="text-slate-500 mt-1">You're on a 12-day training streak. Keep it up!</p>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Osu, {displayName.split(' ')[0]}!</h2>
+              <p className="text-slate-500 mt-1">
+                {attendance.total > 0 ? 'Keep up your training!' : 'Welcome! Start your training journey.'}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <button className="p-2 text-slate-400 hover:text-primary transition-colors relative">
                 <Bell className="size-6" />
-                <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white"></span>
               </button>
               <div className="h-10 w-px bg-slate-200 mx-2"></div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-sm font-bold">Arjun Singh</p>
-                  <p className="text-xs text-slate-500">Brown Belt • 1st Kyu</p>
+                  <p className="text-sm font-bold">{displayName}</p>
+                  <p className="text-xs text-slate-500">{student?.email || user?.email || ''}</p>
                 </div>
-                <img 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI" 
-                  alt="Profile"
-                  className="size-10 rounded-full object-cover border-2 border-primary"
-                />
+                <div className="size-10 rounded-full object-cover border-2 border-primary overflow-hidden shrink-0">
+                  <AspectRatio ratio={1 / 1}>
+                    <img
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI"
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  </AspectRatio>
+                </div>
               </div>
             </div>
           </div>
@@ -65,9 +118,15 @@ export default function Dashboard() {
                 <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">Real-time</span>
               </div>
               <p className="text-slate-500 text-sm font-medium">Classes This Month</p>
-              <h3 className="text-3xl font-bold text-slate-900 mt-1">{attendance.present} <span className="text-slate-400 text-lg font-medium">/ {attendance.total}</span></h3>
+              <h3 className="text-3xl font-bold text-slate-900 mt-1">
+                {attendance.total > 0 ? (
+                  <>{attendance.present} <span className="text-slate-400 text-lg font-medium">/ {attendance.total}</span></>
+                ) : (
+                  <span className="text-slate-400 text-base font-medium">No information available yet</span>
+                )}
+              </h3>
               <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden">
-                <motion.div 
+                <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${(attendance.present / (attendance.total || 1)) * 100}%` }}
                   className="h-full bg-blue-500"
@@ -81,30 +140,30 @@ export default function Dashboard() {
                   <Trophy className="size-6" />
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Next Belt</span>
-                  <p className="text-xs font-black text-slate-900">Black Belt (1st Dan)</p>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Belt Progress</span>
+                  <p className="text-xs font-black text-slate-900">Based on attendance</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-6">
                 <div className="relative size-24 shrink-0">
                   <svg className="size-full -rotate-90" viewBox="0 0 36 36">
                     <circle cx="18" cy="18" r="16" fill="none" className="stroke-slate-100" strokeWidth="3" />
-                    <motion.circle 
-                      cx="18" cy="18" r="16" fill="none" 
-                      className="stroke-orange-500" strokeWidth="3" 
+                    <motion.circle
+                      cx="18" cy="18" r="16" fill="none"
+                      className="stroke-orange-500" strokeWidth="3"
                       strokeDasharray="100"
                       initial={{ strokeDashoffset: 100 }}
-                      animate={{ strokeDashoffset: 100 - overallProgress }}
+                      animate={{ strokeDashoffset: 100 - attendanceRate }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
                       strokeLinecap="round"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xl font-black text-slate-900">{overallProgress}%</span>
+                    <span className="text-xl font-black text-slate-900">{attendance.total > 0 ? Math.round(attendanceRate) : 0}%</span>
                   </div>
                 </div>
-                
+
                 <div className="flex-1 space-y-3">
                   <div>
                     <div className="flex justify-between text-[10px] font-bold mb-1">
@@ -112,9 +171,9 @@ export default function Dashboard() {
                       <span className="text-slate-900">{attendance.present}/{attendance.total}</span>
                     </div>
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <motion.div 
+                      <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${(attendance.present / (attendance.total || 1)) * 100}%` }}
+                        animate={{ width: `${attendanceRate}%` }}
                         className="h-full bg-blue-500"
                       />
                     </div>
@@ -122,14 +181,10 @@ export default function Dashboard() {
                   <div>
                     <div className="flex justify-between text-[10px] font-bold mb-1">
                       <span className="text-slate-500 uppercase">Skill Mastery</span>
-                      <span className="text-slate-900">78%</span>
+                      <span className="text-slate-400 text-[10px]">—</span>
                     </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: '78%' }}
-                        className="h-full bg-emerald-500"
-                      />
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden flex items-center px-1">
+                      <span className="text-[10px] text-slate-400">No data yet</span>
                     </div>
                   </div>
                 </div>
@@ -140,7 +195,7 @@ export default function Dashboard() {
                   <Calendar className="size-3.5 text-slate-400" />
                   <span className="text-[10px] font-bold text-slate-500 uppercase">Next Grading</span>
                 </div>
-                <span className="text-xs font-black text-primary">Dec 15, 2024</span>
+                <span className="text-xs text-slate-400">—</span>
               </div>
             </div>
 
@@ -149,15 +204,16 @@ export default function Dashboard() {
                 <div className="size-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
                   <Flame className="size-6" />
                 </div>
-                <span className="text-xs font-bold text-red-600">Personal Best!</span>
               </div>
               <p className="text-slate-500 text-sm font-medium">Training Streak</p>
-              <h3 className="text-3xl font-bold text-slate-900 mt-1">12 <span className="text-slate-400 text-lg font-medium">Days</span></h3>
-              <div className="mt-4 flex gap-1">
-                {[1, 1, 1, 1, 1, 1, 0].map((active, i) => (
-                  <div key={i} className={cn("flex-1 h-1.5 rounded-full", active ? "bg-red-500" : "bg-slate-100")} />
-                ))}
-              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mt-1">
+                {attendance.total > 0 ? (
+                  <span>{attendance.present} <span className="text-slate-400 text-lg font-medium">classes attended</span></span>
+                ) : (
+                  <span className="text-slate-400 text-base font-medium">No information available yet</span>
+                )}
+              </h3>
+              <p className="text-slate-400 text-xs mt-2">Streak tracking coming soon</p>
             </div>
           </div>
 
@@ -168,34 +224,11 @@ export default function Dashboard() {
               <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                   <h3 className="font-bold text-lg">Upcoming Training</h3>
-                  <button className="text-primary text-sm font-bold hover:underline">View Calendar</button>
                 </div>
-                <div className="divide-y divide-slate-100">
-                  {[
-                    { title: 'Advanced Kumite Drill', time: 'Today, 18:30', instructor: 'Sensei Sato', type: 'Sparring' },
-                    { title: 'Kata Technical Review', time: 'Tomorrow, 17:00', instructor: 'Sensei Tanaka', type: 'Technical' },
-                    { title: 'General Fitness & Conditioning', time: 'Fri, 19:00', instructor: 'Sempai Lee', type: 'Fitness' }
-                  ].map((session, i) => (
-                    <div key={i} className="p-6 flex items-center gap-4 hover:bg-slate-50 transition-colors">
-                      <div className="size-12 rounded-xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 shrink-0">
-                        <Clock className="size-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-slate-900 truncate">{session.title}</h4>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs text-slate-500 flex items-center gap-1">
-                            <Calendar className="size-3" /> {session.time}
-                          </span>
-                          <span className="text-xs text-slate-500 flex items-center gap-1">
-                            <CheckCircle2 className="size-3" /> {session.instructor}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase tracking-wider">
-                        {session.type}
-                      </span>
-                    </div>
-                  ))}
+                <div className="p-8 flex flex-col items-center justify-center text-center text-slate-500">
+                  <Clock className="size-12 mb-3 text-slate-300" />
+                  <p className="font-medium">No upcoming sessions</p>
+                  <p className="text-sm mt-1">Schedule information will appear here when available.</p>
                 </div>
               </section>
 
@@ -203,24 +236,32 @@ export default function Dashboard() {
               <section>
                 <h3 className="font-bold text-lg mb-4">Recent Activity</h3>
                 <div className="space-y-4">
-                  {[
-                    { icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50', title: 'Attendance Logged', desc: 'Advanced Kumite Drill (Oct 14)', time: '2 hours ago' },
-                    { icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50', title: 'Skill Mastered', desc: 'Kanku Dai Kata approved by Sensei', time: 'Yesterday' },
-                    { icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50', title: 'Payment Reminder', desc: 'Monthly fee for November is due', time: '2 days ago' }
-                  ].map((activity, i) => (
-                    <div key={i} className="flex gap-4">
-                      <div className={cn("size-10 rounded-full flex items-center justify-center shrink-0", activity.bg, activity.color)}>
-                        <activity.icon className="size-5" />
-                      </div>
-                      <div className="flex-1 pb-4 border-b border-slate-100">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-slate-900 text-sm">{activity.title}</h4>
-                          <span className="text-xs text-slate-400">{activity.time}</span>
+                  {recentActivityFromAttendance.length > 0 ? (
+                    recentActivityFromAttendance.map((activity, i) => (
+                      <div key={i} className="flex gap-4">
+                        <div className={cn("size-10 rounded-full flex items-center justify-center shrink-0", activity.bg, activity.color)}>
+                          <activity.icon className="size-5" />
                         </div>
-                        <p className="text-sm text-slate-500 mt-0.5">{activity.desc}</p>
+                        <div className="flex-1 pb-4 border-b border-slate-100">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-slate-900 text-sm">{activity.title}</h4>
+                            <span className="text-xs text-slate-400">{activity.time}</span>
+                          </div>
+                          <p className="text-sm text-slate-500 mt-0.5">{activity.desc}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex gap-4 p-6 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="size-10 rounded-full flex items-center justify-center shrink-0 bg-slate-200 text-slate-400">
+                        <Info className="size-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-600">No recent activity</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Your attendance and activity will appear here.</p>
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               </section>
             </div>
@@ -234,19 +275,27 @@ export default function Dashboard() {
                   <Bell className="size-5 text-primary" />
                   Dojo Notices
                 </h3>
-                <div className="space-y-4 relative z-10">
-                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                    <p className="text-xs font-bold text-primary uppercase mb-1">Grading Alert</p>
-                    <p className="text-sm font-medium">Winter Belt Grading starts Dec 15th. Check eligibility now.</p>
-                  </div>
-                  <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">Holiday Notice</p>
-                    <p className="text-sm font-medium">Dojo closed for Diwali from Oct 31st to Nov 2nd.</p>
-                  </div>
+                <div className="relative z-10">
+                  {openFeeRequests.length > 0 ? (
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                      <p className="text-sm font-semibold text-white">New fee notification</p>
+                      <p className="mt-1 text-xs text-slate-300">
+                        You have {openFeeRequests.length} pending fee request{openFeeRequests.length > 1 ? 's' : ''}.
+                      </p>
+                      <Link
+                        to="/fees"
+                        className="mt-3 inline-flex rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90"
+                      >
+                        Go to Fee Information
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-sm text-slate-400">No notices at the moment.</p>
+                      <p className="text-xs text-slate-500 mt-1">Important updates will appear here.</p>
+                    </div>
+                  )}
                 </div>
-                <button className="w-full mt-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
-                  Read All Notices <ChevronRight className="size-4" />
-                </button>
               </section>
 
               {/* Quick Actions */}
@@ -273,8 +322,6 @@ export default function Dashboard() {
               </section>
             </div>
           </div>
-        </div>
-      </main>
     </div>
   );
 }
