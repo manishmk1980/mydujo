@@ -59,6 +59,8 @@ import InstructorAttendance from './pages/instructor/InstructorAttendance';
 import InstructorGrading from './pages/instructor/InstructorGrading';
 import InstructorProfile from './pages/instructor/InstructorProfile';
 
+const routerBaseName = import.meta.env.DEV ? '/' : '/mdpl-qa';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -66,7 +68,7 @@ export default function App() {
         <LanguageProvider>
           <FlashToastProvider>
             <AttendanceProvider>
-              <Router basename="/mdpl-qa">
+              <Router basename={routerBaseName}>
                 <Seo />
                 <Routes>
                   {/* Admin Routes */}

@@ -1,8 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { requireRole } from "../middleware/requireRole.js";
-import { countActivePortalUserIds, getActivityWindowMs } from "../services/portalActivity.js";
 
 const router = Router();
 
@@ -13,181 +11,111 @@ function toIso(dt) {
 function toDateOnlyIso(dt) {
   if (!dt) return null;
   const d = new Date(dt);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  // keep it stable for UI date inputs
+  return d.toISOString().slice(0, 10);
 }
 
-function parseOptionalDate(value) {
-  if (value == null || value === "") return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
+function serializeStudent(s) {
+  return {
+    id: s.id,
+    user_id: s.userId,
+    full_name: s.fullName,
+    email: s.email,
+    phone: s.phone,
+    date_of_birth: toDateOnlyIso(s.dateOfBirth),
+    gender: s.gender,
+    blood_group: s.bloodGroup,
+    emergency_contact: s.emergencyContact,
+    preferred_discipline: s.preferredDiscipline,
+    profile_photo_url: s.profilePhotoUrl,
+    status: s.status,
+    marketing_opt_in: s.marketingOptIn,
+    terms_accepted_at: toIso(s.termsAcceptedAt),
+    created_at: toIso(s.createdAt),
+    training_center_id: s.trainingCenterId,
+    parent_guardian_name: s.parentGuardianName,
+    aadhar_number: s.aadharNumber,
+    qualification: s.qualification,
+    address: s.address,
+    pincode: s.pincode,
+    city: s.city,
+    state: s.state,
+    locality: s.locality,
+    school_college_name: s.schoolCollegeName,
+    school_college_location_city: s.schoolCollegeLocationCity,
+    school_college_location_state: s.schoolCollegeLocationState,
+    school_college_location_pin: s.schoolCollegeLocationPin,
+    instructor_name: s.instructorName,
+    validated_at: toIso(s.validatedAt),
+    validated_by: s.validatedBy,
+    registration_id: s.registrationId,
+    enrollment_id: s.enrollmentId,
+    training_centers: s.trainingCenter
+      ? { name: s.trainingCenter.name, slug: s.trainingCenter.slug }
+      : null,
+  };
 }
-
-const STATUS_ALLOWED = new Set(["draft", "pending", "approved", "paused", "rejected"]);
-const STATUS_PATCH_ALLOWED = new Set(["pending", "approved", "paused", "rejected"]);
-const DISCIPLINE_ENUM = new Set(["karate_shotokan", "judo_kodokan", "self_defense"]);
 
 function parseStatus(status) {
-  if (status == null || status === "") return undefined;
-  const s = String(status).trim();
-  return STATUS_ALLOWED.has(s) ? s : null;
+  if (status == null) return undefined;
+  const allowed = new Set(["draft", "pending", "approved", "paused", "rejected"]);
+  if (!allowed.has(status)) return null;
+  return status;
 }
 
+const STATUS_PATCH_ALLOWED = new Set(["pending", "approved", "paused", "rejected"]);
+
+const DISCIPLINE_ENUM = new Set(["karate_shotokan", "judo_kodokan", "self_defense"]);
 function parseDiscipline(value) {
   if (value == null || value === "") return undefined;
   const v = String(value).trim();
   return DISCIPLINE_ENUM.has(v) ? v : undefined;
 }
 
-function serializeStudent(s, trainingCenter = null) {
-  return {
-    id: s.id,
-
-    user_id: s.user_id ?? null,
-    userId: s.user_id ?? null,
-
-    full_name: s.full_name,
-    fullName: s.full_name,
-
-    email: s.email ?? null,
-    phone: s.phone ?? null,
-
-    date_of_birth: toDateOnlyIso(s.date_of_birth),
-    dateOfBirth: toDateOnlyIso(s.date_of_birth),
-
-    gender: s.gender ?? null,
-
-    blood_group: s.blood_group ?? null,
-    bloodGroup: s.blood_group ?? null,
-
-    emergency_contact: s.emergency_contact ?? null,
-    emergencyContact: s.emergency_contact ?? null,
-
-    preferred_discipline: s.preferred_discipline ?? null,
-    preferredDiscipline: s.preferred_discipline ?? null,
-
-    profile_photo_url: s.profile_photo_url ?? null,
-    profilePhotoUrl: s.profile_photo_url ?? null,
-
-    status: s.status ?? null,
-
-    marketing_opt_in: Boolean(s.marketing_opt_in),
-    marketingOptIn: Boolean(s.marketing_opt_in),
-
-    terms_accepted_at: toIso(s.terms_accepted_at),
-    termsAcceptedAt: toIso(s.terms_accepted_at),
-
-    created_at: toIso(s.created_at),
-    createdAt: toIso(s.created_at),
-
-    training_center_id: s.training_center_id ?? null,
-    trainingCenterId: s.training_center_id ?? null,
-
-    parent_guardian_name: s.parent_guardian_name ?? null,
-    parentGuardianName: s.parent_guardian_name ?? null,
-
-    aadhar_number: s.aadhar_number ?? null,
-    aadharNumber: s.aadhar_number ?? null,
-
-    qualification: s.qualification ?? null,
-    address: s.address ?? null,
-    pincode: s.pincode ?? null,
-    city: s.city ?? null,
-    state: s.state ?? null,
-    locality: s.locality ?? null,
-
-    school_college_name: s.school_college_name ?? null,
-    schoolCollegeName: s.school_college_name ?? null,
-
-    school_college_location_city: s.school_college_location_city ?? null,
-    schoolCollegeLocationCity: s.school_college_location_city ?? null,
-
-    school_college_location_state: s.school_college_location_state ?? null,
-    schoolCollegeLocationState: s.school_college_location_state ?? null,
-
-    school_college_location_pin: s.school_college_location_pin ?? null,
-    schoolCollegeLocationPin: s.school_college_location_pin ?? null,
-
-    instructor_name: s.instructor_name ?? null,
-    instructorName: s.instructor_name ?? null,
-
-    validated_at: toIso(s.validated_at),
-    validatedAt: toIso(s.validated_at),
-
-    validated_by: s.validated_by ?? null,
-    validatedBy: s.validated_by ?? null,
-
-    registration_id: s.registration_id ?? null,
-    registrationId: s.registration_id ?? null,
-
-    enrollment_id: s.enrollment_id ?? null,
-    enrollmentId: s.enrollment_id ?? null,
-
-    training_centers: trainingCenter
-      ? {
-          id: trainingCenter.id,
-          name: trainingCenter.name,
-          slug: trainingCenter.slug,
-        }
-      : null,
-  };
+function parseOptionalDate(value) {
+  if (value == null || value === "") return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
 }
 
-async function getTrainingCenterMap(studentRows) {
-  const ids = [...new Set(studentRows.map((s) => s.training_center_id).filter(Boolean))];
-  if (!ids.length) return new Map();
 
-  const centers = await prisma.training_centers.findMany({
-    where: { id: { in: ids } },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-    },
-  });
-
-  return new Map(centers.map((c) => [c.id, c]));
-}
-
-// GET /students
-router.get("/", requireAuth, async (_req, res) => {
+// Dashboard student statistics (admin)
+router.get("/dashboard-stats", requireAuth, async (req, res) => {
   try {
-    const rows = await prisma.students.findMany({
-      orderBy: { created_at: "desc" },
-    });
-
-    const centerMap = await getTrainingCenterMap(rows);
-    const students = rows.map((row) =>
-      serializeStudent(row, centerMap.get(row.training_center_id) || null)
-    );
-
-    return res.json({ students });
-  } catch (err) {
-    console.error("GET /students error:", err);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// GET /students/dashboard-stats — admin overview (must be before /:id)
-router.get("/dashboard-stats", requireAuth, requireRole(["ADMIN", "SUPER_ADMIN"]), async (_req, res) => {
-  try {
-    const windowMs = getActivityWindowMs();
-    const [registered, approved, approvedWithLogin] = await Promise.all([
-      prisma.students.count(),
-      prisma.students.count({ where: { status: "approved" } }),
-      prisma.students.findMany({
-        where: { status: "approved", user_id: { not: null } },
-        select: { user_id: true },
-      }),
+    const [registered, approved] = await Promise.all([
+      prisma.student.count(),
+      prisma.student.count({ where: { status: "approved" } }),
     ]);
-    const userIds = approvedWithLogin.map((s) => s.user_id).filter(Boolean);
-    const activePortal = countActivePortalUserIds(userIds, windowMs);
+
+    let activeInPortal = 0;
+
+    try {
+      const activeRows = await prisma.$queryRawUnsafe(`
+        SELECT COUNT(DISTINCT s.user_id) AS active
+        FROM students s
+        INNER JOIN refresh_tokens rt ON rt.user_id = s.user_id
+        WHERE s.user_id IS NOT NULL
+          AND s.status = 'approved'
+      `);
+
+      activeInPortal = Number(activeRows?.[0]?.active || 0);
+    } catch (activeErr) {
+      console.warn("dashboard-stats active portal count fallback:", activeErr.message);
+    }
 
     return res.json({
       registered,
       approved,
-      active_portal: activePortal,
-      active_within_ms: windowMs,
-      active_within_minutes: Math.round(windowMs / 60000),
+      activeInPortal,
+
+      // Compatibility aliases for frontend naming differences
+      registeredCount: registered,
+      approvedCount: approved,
+      activePortalCount: activeInPortal,
+      totalStudents: registered,
+      approvedStudents: approved,
+      activeStudents: activeInPortal,
     });
   } catch (err) {
     console.error("GET /students/dashboard-stats error:", err);
@@ -195,63 +123,59 @@ router.get("/dashboard-stats", requireAuth, requireRole(["ADMIN", "SUPER_ADMIN"]
   }
 });
 
-// GET /students/by-user/:userId
+// List students (admin)
+router.get("/", requireAuth, async (req, res) => {
+  try {
+    const rows = await prisma.student.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        trainingCenter: { select: { name: true, slug: true } },
+      },
+    });
+
+    return res.json({ students: rows.map(serializeStudent) });
+  } catch (err) {
+    console.error("GET /students error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/by-user/:userId", requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-
-    const row = await prisma.students.findFirst({
-      where: { user_id: userId },
+    const row = await prisma.student.findUnique({
+      where: { userId },
+      include: {
+        trainingCenter: { select: { name: true, slug: true } },
+      },
     });
 
-    if (!row) {
-      return res.status(404).json({ error: "Student not found" });
-    }
-
-    let center = null;
-    if (row.training_center_id) {
-      center = await prisma.training_centers.findUnique({
-        where: { id: row.training_center_id },
-        select: { id: true, name: true, slug: true },
-      });
-    }
-
-    return res.json({ student: serializeStudent(row, center) });
+    if (!row) return res.status(404).json({ error: "Student not found" });
+    return res.json({ student: serializeStudent(row) });
   } catch (err) {
     console.error("GET /students/by-user/:userId error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// GET /students/:id
 router.get("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-
-    const row = await prisma.students.findUnique({
+    const row = await prisma.student.findUnique({
       where: { id },
+      include: {
+        trainingCenter: { select: { name: true, slug: true } },
+      },
     });
 
-    if (!row) {
-      return res.status(404).json({ error: "Student not found" });
-    }
-
-    let center = null;
-    if (row.training_center_id) {
-      center = await prisma.training_centers.findUnique({
-        where: { id: row.training_center_id },
-        select: { id: true, name: true, slug: true },
-      });
-    }
-
-    return res.json({ student: serializeStudent(row, center) });
+    if (!row) return res.status(404).json({ error: "Student not found" });
+    return res.json({ student: serializeStudent(row) });
   } catch (err) {
     console.error("GET /students/:id error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// POST /students
 router.post("/", requireAuth, async (req, res) => {
   try {
     const b = req.body || {};
@@ -269,55 +193,48 @@ router.post("/", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "email is required" });
     }
 
-    const row = await prisma.students.create({
+    const row = await prisma.student.create({
       data: {
-        user_id: b.user_id ?? null,
-        full_name: String(b.full_name).trim(),
+        userId: b.user_id ?? null,
+        fullName: String(b.full_name).trim(),
         email: String(b.email).trim(),
         phone: b.phone ?? null,
-        date_of_birth: parseOptionalDate(b.date_of_birth),
+        dateOfBirth: parseOptionalDate(b.date_of_birth),
         gender: b.gender ?? null,
-        blood_group: b.blood_group ?? null,
-        emergency_contact: b.emergency_contact ?? null,
-        preferred_discipline: parseDiscipline(b.preferred_discipline) ?? null,
-        training_center_id: b.training_center_id ?? null,
-        profile_photo_url: b.profile_photo_url ?? null,
-        status: status ?? "pending",
-        marketing_opt_in:
-          b.marketing_opt_in !== undefined ? Boolean(b.marketing_opt_in) : false,
-        terms_accepted_at: parseOptionalDate(b.terms_accepted_at),
-        parent_guardian_name: b.parent_guardian_name ?? null,
-        aadhar_number: b.aadhar_number ?? null,
+        bloodGroup: b.blood_group ?? null,
+        emergencyContact: b.emergency_contact ?? null,
+        preferredDiscipline: parseDiscipline(b.preferred_discipline) ?? undefined,
+        trainingCenterId: b.training_center_id ?? null,
+        profilePhotoUrl: b.profile_photo_url ?? null,
+        status: status ?? undefined,
+        marketingOptIn: Boolean(b.marketing_opt_in),
+        termsAcceptedAt: parseOptionalDate(b.terms_accepted_at),
+        parentGuardianName: b.parent_guardian_name ?? null,
+        aadharNumber: b.aadhar_number ?? null,
         qualification: b.qualification ?? null,
         address: b.address ?? null,
         pincode: b.pincode ?? null,
         city: b.city ?? null,
         state: b.state ?? null,
         locality: b.locality ?? null,
-        school_college_name: b.school_college_name ?? null,
-        school_college_location_city: b.school_college_location_city ?? null,
-        school_college_location_state: b.school_college_location_state ?? null,
-        school_college_location_pin: b.school_college_location_pin ?? null,
-        instructor_name: b.instructor_name ?? null,
+        schoolCollegeName: b.school_college_name ?? null,
+        schoolCollegeLocationCity: b.school_college_location_city ?? null,
+        schoolCollegeLocationState: b.school_college_location_state ?? null,
+        schoolCollegeLocationPin: b.school_college_location_pin ?? null,
+        instructorName: b.instructor_name ?? null,
+      },
+      include: {
+        trainingCenter: { select: { name: true, slug: true } },
       },
     });
 
-    let center = null;
-    if (row.training_center_id) {
-      center = await prisma.training_centers.findUnique({
-        where: { id: row.training_center_id },
-        select: { id: true, name: true, slug: true },
-      });
-    }
-
-    return res.status(201).json({ student: serializeStudent(row, center) });
+    return res.status(201).json({ student: serializeStudent(row) });
   } catch (err) {
     console.error("POST /students error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// PUT /students/:id
 router.put("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -328,99 +245,82 @@ router.put("/:id", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Invalid status" });
     }
 
-    const data = {};
-
-    if (b.full_name != null) data.full_name = String(b.full_name).trim();
-    if (b.email != null) data.email = String(b.email).trim();
-    if (b.phone !== undefined) data.phone = b.phone ?? null;
-    if (b.date_of_birth !== undefined) data.date_of_birth = parseOptionalDate(b.date_of_birth);
-    if (b.gender !== undefined) data.gender = b.gender ?? null;
-    if (b.blood_group !== undefined) data.blood_group = b.blood_group ?? null;
-    if (b.emergency_contact !== undefined) data.emergency_contact = b.emergency_contact ?? null;
-    if (b.preferred_discipline !== undefined) {
-      data.preferred_discipline = parseDiscipline(b.preferred_discipline) ?? null;
-    }
-    if (b.training_center_id !== undefined) data.training_center_id = b.training_center_id ?? null;
-    if (b.profile_photo_url !== undefined) data.profile_photo_url = b.profile_photo_url ?? null;
-    if (status !== undefined) data.status = status;
-    if (b.marketing_opt_in !== undefined) data.marketing_opt_in = Boolean(b.marketing_opt_in);
-    if (b.terms_accepted_at !== undefined) data.terms_accepted_at = parseOptionalDate(b.terms_accepted_at);
-    if (b.parent_guardian_name !== undefined) data.parent_guardian_name = b.parent_guardian_name ?? null;
-    if (b.aadhar_number !== undefined) data.aadhar_number = b.aadhar_number ?? null;
-    if (b.qualification !== undefined) data.qualification = b.qualification ?? null;
-    if (b.address !== undefined) data.address = b.address ?? null;
-    if (b.pincode !== undefined) data.pincode = b.pincode ?? null;
-    if (b.city !== undefined) data.city = b.city ?? null;
-    if (b.state !== undefined) data.state = b.state ?? null;
-    if (b.locality !== undefined) data.locality = b.locality ?? null;
-    if (b.school_college_name !== undefined) data.school_college_name = b.school_college_name ?? null;
-    if (b.school_college_location_city !== undefined) {
-      data.school_college_location_city = b.school_college_location_city ?? null;
-    }
-    if (b.school_college_location_state !== undefined) {
-      data.school_college_location_state = b.school_college_location_state ?? null;
-    }
-    if (b.school_college_location_pin !== undefined) {
-      data.school_college_location_pin = b.school_college_location_pin ?? null;
-    }
-    if (b.instructor_name !== undefined) data.instructor_name = b.instructor_name ?? null;
-
-    const row = await prisma.students.update({
+    const row = await prisma.student.update({
       where: { id },
-      data,
+      data: {
+        fullName: b.full_name != null ? String(b.full_name).trim() : undefined,
+        phone: b.phone ?? undefined,
+        dateOfBirth: b.date_of_birth !== undefined ? parseOptionalDate(b.date_of_birth) : undefined,
+        gender: b.gender ?? undefined,
+        bloodGroup: b.blood_group ?? undefined,
+        emergencyContact: b.emergency_contact ?? undefined,
+        preferredDiscipline: parseDiscipline(b.preferred_discipline) ?? undefined,
+        trainingCenterId: b.training_center_id ?? undefined,
+        profilePhotoUrl: b.profile_photo_url ?? undefined,
+        status: status ?? undefined,
+        marketingOptIn: b.marketing_opt_in !== undefined ? Boolean(b.marketing_opt_in) : undefined,
+        termsAcceptedAt: b.terms_accepted_at !== undefined ? parseOptionalDate(b.terms_accepted_at) : undefined,
+        parentGuardianName: b.parent_guardian_name ?? undefined,
+        aadharNumber: b.aadhar_number ?? undefined,
+        qualification: b.qualification ?? undefined,
+        address: b.address ?? undefined,
+        pincode: b.pincode ?? undefined,
+        city: b.city ?? undefined,
+        state: b.state ?? undefined,
+        locality: b.locality ?? undefined,
+        schoolCollegeName: b.school_college_name ?? undefined,
+        schoolCollegeLocationCity: b.school_college_location_city ?? undefined,
+        schoolCollegeLocationState: b.school_college_location_state ?? undefined,
+        schoolCollegeLocationPin: b.school_college_location_pin ?? undefined,
+        instructorName: b.instructor_name ?? undefined,
+      },
+      include: {
+        trainingCenter: { select: { name: true, slug: true } },
+      },
     });
 
-    let center = null;
-    if (row.training_center_id) {
-      center = await prisma.training_centers.findUnique({
-        where: { id: row.training_center_id },
-        select: { id: true, name: true, slug: true },
-      });
-    }
-
-    return res.json({ student: serializeStudent(row, center) });
+    return res.json({ student: serializeStudent(row) });
   } catch (err) {
     console.error("PUT /students/:id error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// PATCH /students/:id/status
 router.patch("/:id/status", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
 
-    if (!status || !STATUS_PATCH_ALLOWED.has(String(status))) {
+    if (!status || !STATUS_PATCH_ALLOWED.has(status)) {
       return res.status(400).json({
         error: `Invalid status. Allowed values: ${[...STATUS_PATCH_ALLOWED].join(", ")}`,
       });
     }
 
-    const existing = await prisma.students.findUnique({
+    const existingStudent = await prisma.student.findUnique({
       where: { id },
+      include: { user: true },
     });
 
-    if (!existing) {
+    if (!existingStudent) {
       return res.status(404).json({ error: "Student not found" });
     }
 
-    const updated = await prisma.students.update({
+    const updatedStudent = await prisma.student.update({
       where: { id },
-      data: { status: String(status) },
+      data: { status },
+      include: {
+        user: true,
+        trainingCenter: true,
+      },
     });
-
-    let center = null;
-    if (updated.training_center_id) {
-      center = await prisma.training_centers.findUnique({
-        where: { id: updated.training_center_id },
-        select: { id: true, name: true, slug: true },
-      });
-    }
 
     return res.json({
       message: `Student status updated to ${status}`,
-      student: serializeStudent(updated, center),
+      student: serializeStudent({
+        ...updatedStudent,
+        email: updatedStudent.email ?? updatedStudent.user?.email ?? "",
+      }),
     });
   } catch (err) {
     console.error("PATCH /students/:id/status error:", err);
@@ -428,11 +328,10 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /students/:id
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    await prisma.students.delete({ where: { id } });
+    await prisma.student.delete({ where: { id } });
     return res.json({ ok: true });
   } catch (err) {
     console.error("DELETE /students/:id error:", err);

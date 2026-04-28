@@ -1,6 +1,19 @@
 /**
  * App config. VITE_* vars are set at build time (see .env and DEPLOYMENT.md).
+ *
+ * Production: omit VITE_API_URL so the client uses `${window.location.origin}/api`
+ * (same origin). Apache/nginx must not send /api through a cross-host canonical
+ * redirect (e.g. www→apex): a 301/302 there often retries POST as GET and breaks
+ * auth/register. Exclude /api from RewriteRule host redirects and proxy /api on the
+ * same host as the SPA (e.g. ProxyPass /api/ http://127.0.0.1:4000/).
+ *
+ * Temporary QA (kreatorbox): SPA may load on https://www.kreatorbox.com/mdpl-qa while
+ * Apache still redirects www /api to apex. Until that is fixed, we force API calls to
+ * https://kreatorbox.com/api so POSTs hit Node without that redirect. Backend CORS
+ * must allow https://www.kreatorbox.com. Remove FORCE_QA_APEX_API when www /api is fixed.
  */
+const FORCE_QA_APEX_API = 'https://kreatorbox.com/api';
+
 function trimTrailingSlash(v: string) {
   return v.replace(/\/+$/, '');
 }
@@ -13,6 +26,13 @@ function normalizeApiPath(pathname: string) {
 }
 
 function resolveApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'www.kreatorbox.com' || host === 'kreatorbox.com') {
+      return FORCE_QA_APEX_API;
+    }
+  }
+
   const raw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
 
   if (!raw) {
@@ -23,7 +43,8 @@ function resolveApiBase(): string {
   // Absolute URL (http/https)
   try {
     const parsed = new URL(raw);
-    parsed.pathname = normalizeApiPath(parsed.pathname || '/api');
+    const apiPath = normalizeApiPath(parsed.pathname || '/api');
+    parsed.pathname = apiPath;
     return trimTrailingSlash(parsed.toString());
   } catch {
     // Not an absolute URL.
