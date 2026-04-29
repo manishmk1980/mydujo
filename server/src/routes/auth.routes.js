@@ -9,6 +9,7 @@ const router = Router();
 
 const columnCache = new Map();
 const schemaName = process.env.DB_NAME || null;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function parseTTL(ttl) {
   return ttl;
@@ -277,6 +278,19 @@ async function findInstructorByUserId(userId) {
   return normalizeInstructor(rows[0] || null);
 }
 
+async function findAdminUserByUserId(userId) {
+  return prisma.admin_users.findFirst({
+    where: { user_id: String(userId) },
+    select: {
+      id: true,
+      user_id: true,
+      email: true,
+      display_name: true,
+      created_at: true,
+    },
+  });
+}
+
 router.post("/signup", async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -382,7 +396,8 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       accessToken,
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, roles },
+      roles,
     });
   } catch (e) {
     console.error("POST /auth/login error:", e);
@@ -522,7 +537,202 @@ router.post("/instructor/login", async (req, res) => {
   }
 });
 
-router.post("/logout", (req, res) => {
+router.get("/admin/security", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const [user, adminUser, roles] = await Promise.all([
+      findUserById(userId),
+      findAdminUserByUserId(userId),
+      getRolesForUser(userId),
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (!adminUser) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    return res.json({
+      account: {
+        userId: user.id,
+        email: adminUser.email || user.email,
+        displayName: adminUser.display_name || null,
+        roles,
+        isSuperAdmin: roles.includes("SUPER_ADMIN"),
+      },
+      admin: {
+        id: adminUser.id,
+        email: adminUser.email,
+        displayName: adminUser.display_name || null,
+        createdAt: adminUser.created_at,
+      },
+    });
+  } catch (err) {
+    console.error("GET /auth/admin/security error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/admin/profile", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const [user, adminUser, roles] = await Promise.all([
+      findUserById(userId),
+      findAdminUserByUserId(userId),
+      getRolesForUser(userId),
+    ]);
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!adminUser) return res.status(403).json({ error: "Not authorized" });
+
+    return res.json({
+      profile: {
+        userId: String(user.id),
+        email: adminUser.email || user.email,
+        displayName: adminUser.display_name || null,
+        roles,
+        isSuperAdmin: roles.includes("SUPER_ADMIN"),
+      },
+    });
+  } catch (err) {
+    console.error("GET /auth/admin/profile error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/admin/profile", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const roles = await getRolesForUser(userId);
+    if (!roles.includes("SUPER_ADMIN") && !roles.includes("ADMIN")) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    const { displayName } = req.body || {};
+    const normalizedDisplayName =
+      displayName != null && String(displayName).trim() !== ""
+        ? String(displayName).trim().slice(0, 255)
+        : null;
+
+    await prisma.admin_users.updateMany({
+      where: { user_id: String(userId) },
+      data: { display_name: normalizedDisplayName },
+    });
+
+    return res.json({ ok: true, profile: { displayName: normalizedDisplayName } });
+  } catch (err) {
+    console.error("PATCH /auth/admin/profile error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/admin/security", requireAuth, async (req, res) => {
+  try {
+    const userId = req.auth.userId;
+    const { currentPassword, newEmail, newPassword } = req.body || {};
+
+    if (!currentPassword || String(currentPassword).trim() === "") {
+      return res.status(400).json({ error: "currentPassword is required" });
+    }
+
+    const [user, adminUser] = await Promise.all([
+      findUserById(userId),
+      findAdminUserByUserId(userId),
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (!adminUser) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+    if (!user.passwordHash) {
+      return res.status(400).json({ error: "Password is not set for this account" });
+    }
+
+    const isCurrentPasswordValid = await argon2.verify(user.passwordHash, String(currentPassword));
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const normalizedEmail =
+      newEmail != null && String(newEmail).trim() !== ""
+        ? String(newEmail).trim().toLowerCase()
+        : null;
+    const normalizedPassword =
+      newPassword != null && String(newPassword).trim() !== ""
+        ? String(newPassword)
+        : null;
+
+    if (!normalizedEmail && !normalizedPassword) {
+      return res.status(400).json({ error: "Provide newEmail or newPassword" });
+    }
+
+    const userUpdateData = {
+      updated_at: new Date(),
+    };
+    let nextEmail = null;
+
+    if (normalizedEmail) {
+      if (!EMAIL_REGEX.test(normalizedEmail)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+      const existingWithEmail = await findUserByEmail(normalizedEmail);
+      if (existingWithEmail && String(existingWithEmail.id) !== String(user.id)) {
+        return res.status(409).json({ error: "Email already in use" });
+      }
+      if (normalizedEmail !== String(user.email || "").toLowerCase()) {
+        userUpdateData.email = normalizedEmail;
+        nextEmail = normalizedEmail;
+      }
+    }
+
+    if (normalizedPassword) {
+      if (normalizedPassword.length < 8) {
+        return res.status(400).json({ error: "newPassword must be at least 8 characters" });
+      }
+      userUpdateData.password_hash = await argon2.hash(normalizedPassword);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.users.update({
+        where: { id: String(user.id) },
+        data: userUpdateData,
+      });
+
+      if (nextEmail) {
+        await tx.admin_users.updateMany({
+          where: { user_id: String(user.id) },
+          data: { email: nextEmail },
+        });
+      }
+
+      await tx.refresh_tokens.deleteMany({
+        where: { user_id: String(user.id) },
+      });
+    });
+
+    res.clearCookie("refresh_token", { path: "/" });
+    return res.json({
+      ok: true,
+      message: "Super admin security updated. Please login again.",
+      requireRelogin: true,
+    });
+  } catch (err) {
+    console.error("PATCH /auth/admin/security error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/logout", requireAuth, async (req, res) => {
+  try {
+    await prisma.refresh_tokens.deleteMany({
+      where: { user_id: String(req.auth.userId) },
+    });
+  } catch (err) {
+    console.warn("POST /auth/logout refresh token cleanup failed:", err);
+  }
   res.clearCookie("refresh_token", { path: "/" });
   return res.json({ ok: true });
 });
@@ -536,14 +746,18 @@ router.get("/me", requireAuth, async (req, res) => {
     }
 
     const roles = await getRolesForUser(user.id);
-    const student = await findStudentByUserId(user.id);
-    const instructor = await findInstructorByUserId(user.id);
+    const [student, instructor, adminUser] = await Promise.all([
+      findStudentByUserId(user.id),
+      findInstructorByUserId(user.id),
+      findAdminUserByUserId(user.id),
+    ]);
 
     const payload = {
       user: {
         id: user.id,
         email: user.email,
-        full_name: student?.fullName ?? instructor?.fullName ?? null,
+        full_name: adminUser?.display_name ?? student?.fullName ?? instructor?.fullName ?? null,
+        display_name: adminUser?.display_name ?? null,
         createdAt: user.createdAt,
       },
       roles,
