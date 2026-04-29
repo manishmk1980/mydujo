@@ -60,7 +60,7 @@ import InstructorAttendance from './pages/instructor/InstructorAttendance';
 import InstructorGrading from './pages/instructor/InstructorGrading';
 import InstructorProfile from './pages/instructor/InstructorProfile';
 
-const routerBaseName = import.meta.env.DEV ? '/' : '/mdpl-qa';
+const routerBaseName = '/';
 
 export default function App() {
   return (
