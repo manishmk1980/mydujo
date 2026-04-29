@@ -2,8 +2,8 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { getSeoConfigForPathname } from '../seo/config';
 
-const SITE_ORIGIN = (import.meta.env.VITE_PUBLIC_SITE_ORIGIN || 'https://kreatorbox.com').replace(/\/$/, '');
-const BASE_PATH = (import.meta.env.VITE_PUBLIC_BASE_PATH || '/mdpl-qa').replace(/\/$/, '');
+const SITE_ORIGIN = (import.meta.env.VITE_PUBLIC_SITE_ORIGIN || 'https://mydojo.co.in').replace(/\/$/, '');
+const BASE_PATH = (import.meta.env.VITE_PUBLIC_BASE_PATH || '').replace(/\/$/, '');
 
 function canonicalForPath(routePath: string) {
   if (!routePath) return `${SITE_ORIGIN}${BASE_PATH}/`;
