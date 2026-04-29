@@ -31,8 +31,8 @@ function serializeStudent(s) {
     status: s.status,
     marketing_opt_in: s.marketingOptIn,
     terms_accepted_at: toIso(s.termsAcceptedAt),
-    created_at: toIso(s.createdAt),
-    training_center_id: s.trainingCenterId,
+    created_at: toIso(s.created_at),
+    training_center_id: s.training_center_id,
     parent_guardian_name: s.parentGuardianName,
     aadhar_number: s.aadharNumber,
     qualification: s.qualification,
@@ -50,8 +50,8 @@ function serializeStudent(s) {
     validated_by: s.validatedBy,
     registration_id: s.registrationId,
     enrollment_id: s.enrollmentId,
-    training_centers: s.trainingCenter
-      ? { name: s.trainingCenter.name, slug: s.trainingCenter.slug }
+    training_centers: s.training_centers
+      ? { name: s.training_centers.name, slug: s.training_centers.slug }
       : null,
   };
 }
@@ -84,8 +84,8 @@ function parseOptionalDate(value) {
 router.get("/dashboard-stats", requireAuth, async (req, res) => {
   try {
     const [registered, approved] = await Promise.all([
-      prisma.student.count(),
-      prisma.student.count({ where: { status: "approved" } }),
+      prisma.students.count(),
+      prisma.students.count({ where: { status: "approved" } }),
     ]);
 
     let activeInPortal = 0;
@@ -126,10 +126,10 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
 // List students (admin)
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const rows = await prisma.student.findMany({
-      orderBy: { createdAt: "desc" },
+    const rows = await prisma.students.findMany({
+      orderBy: { created_at: "desc" },
       include: {
-        trainingCenter: { select: { name: true, slug: true } },
+        training_centers: { select: { name: true, slug: true } },
       },
     });
 
@@ -143,10 +143,10 @@ router.get("/", requireAuth, async (req, res) => {
 router.get("/by-user/:userId", requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const row = await prisma.student.findUnique({
+    const row = await prisma.students.findUnique({
       where: { userId },
       include: {
-        trainingCenter: { select: { name: true, slug: true } },
+        training_centers: { select: { name: true, slug: true } },
       },
     });
 
@@ -161,10 +161,10 @@ router.get("/by-user/:userId", requireAuth, async (req, res) => {
 router.get("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const row = await prisma.student.findUnique({
+    const row = await prisma.students.findUnique({
       where: { id },
       include: {
-        trainingCenter: { select: { name: true, slug: true } },
+        training_centers: { select: { name: true, slug: true } },
       },
     });
 
@@ -193,7 +193,7 @@ router.post("/", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "email is required" });
     }
 
-    const row = await prisma.student.create({
+    const row = await prisma.students.create({
       data: {
         userId: b.user_id ?? null,
         fullName: String(b.full_name).trim(),
@@ -204,7 +204,7 @@ router.post("/", requireAuth, async (req, res) => {
         bloodGroup: b.blood_group ?? null,
         emergencyContact: b.emergency_contact ?? null,
         preferredDiscipline: parseDiscipline(b.preferred_discipline) ?? undefined,
-        trainingCenterId: b.training_center_id ?? null,
+        training_center_id: b.training_center_id ?? null,
         profilePhotoUrl: b.profile_photo_url ?? null,
         status: status ?? undefined,
         marketingOptIn: Boolean(b.marketing_opt_in),
@@ -224,7 +224,7 @@ router.post("/", requireAuth, async (req, res) => {
         instructorName: b.instructor_name ?? null,
       },
       include: {
-        trainingCenter: { select: { name: true, slug: true } },
+        training_centers: { select: { name: true, slug: true } },
       },
     });
 
@@ -245,7 +245,7 @@ router.put("/:id", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Invalid status" });
     }
 
-    const row = await prisma.student.update({
+    const row = await prisma.students.update({
       where: { id },
       data: {
         fullName: b.full_name != null ? String(b.full_name).trim() : undefined,
@@ -255,7 +255,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         bloodGroup: b.blood_group ?? undefined,
         emergencyContact: b.emergency_contact ?? undefined,
         preferredDiscipline: parseDiscipline(b.preferred_discipline) ?? undefined,
-        trainingCenterId: b.training_center_id ?? undefined,
+        training_center_id: b.training_center_id ?? undefined,
         profilePhotoUrl: b.profile_photo_url ?? undefined,
         status: status ?? undefined,
         marketingOptIn: b.marketing_opt_in !== undefined ? Boolean(b.marketing_opt_in) : undefined,
@@ -275,7 +275,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         instructorName: b.instructor_name ?? undefined,
       },
       include: {
-        trainingCenter: { select: { name: true, slug: true } },
+        training_centers: { select: { name: true, slug: true } },
       },
     });
 
@@ -297,7 +297,7 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
       });
     }
 
-    const existingStudent = await prisma.student.findUnique({
+    const existingStudent = await prisma.students.findUnique({
       where: { id },
       include: { user: true },
     });
@@ -306,12 +306,12 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Student not found" });
     }
 
-    const updatedStudent = await prisma.student.update({
+    const updatedStudent = await prisma.students.update({
       where: { id },
       data: { status },
       include: {
         user: true,
-        trainingCenter: true,
+        training_centers: true,
       },
     });
 
@@ -331,7 +331,7 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    await prisma.student.delete({ where: { id } });
+    await prisma.students.delete({ where: { id } });
     return res.json({ ok: true });
   } catch (err) {
     console.error("DELETE /students/:id error:", err);

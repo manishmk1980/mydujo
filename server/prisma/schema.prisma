@@ -94,10 +94,11 @@ model refresh_tokens {
 }
 
 model admin_users {
-  id         String   @id @default(uuid()) @db.Char(36)
-  user_id    String   @unique @db.Char(36)
-  email      String   @db.VarChar(255)
-  created_at DateTime @default(now()) @db.DateTime(0)
+  id           String   @id @default(uuid()) @db.Char(36)
+  user_id      String   @unique @db.Char(36)
+  email        String   @db.VarChar(255)
+  created_at   DateTime @default(now()) @db.DateTime(0)
+  display_name String?  @db.VarChar(255)
 
   users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
