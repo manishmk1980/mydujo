@@ -4,8 +4,10 @@ import { attendanceService } from '../services/attendanceService';
 import { Check, X, User, Calendar, Search, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import { useFlashToast } from '../components/ui/FlashToast';
 
 import { studentService, DBStudent } from '../services/studentService';
+import { metaService, type DisciplineOption } from '../services/metaService';
 
 const classes = [
   { id: 'c1', name: 'Advanced Kumite' },
@@ -14,6 +16,7 @@ const classes = [
 ];
 
 export default function AttendancePage() {
+  const toast = useFlashToast();
   const [students, setStudents] = useState<DBStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<Array<{ studentId: string; attendanceDate: string; notes: string | null; status: string; id: string }>>([]);
@@ -21,6 +24,7 @@ export default function AttendancePage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [disciplineOptions, setDisciplineOptions] = useState<DisciplineOption[]>([]);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -35,6 +39,18 @@ export default function AttendancePage() {
     };
     fetchStudents();
   }, []);
+
+  useEffect(() => {
+    metaService
+      .getDisciplines()
+      .then((data) => setDisciplineOptions(data || []))
+      .catch(() => setDisciplineOptions([]));
+  }, []);
+
+  const getDisciplineMeta = (value: string | null) => {
+    if (!value) return null;
+    return disciplineOptions.find((d) => d.value === value) || null;
+  };
 
   const fetchRecordsForDate = async () => {
     if (students.length === 0) return;
@@ -91,7 +107,7 @@ export default function AttendancePage() {
         },
       ]);
     } catch (err) {
-      alert('Failed to mark attendance');
+      toast.error('Failed to mark attendance');
     }
   };
 
@@ -102,7 +118,7 @@ export default function AttendancePage() {
       await attendanceService.updateAttendanceStatus(rec.id, 'rejected');
       setRecords((prev) => prev.filter((r) => r.id !== rec.id));
     } catch (err) {
-      alert('Failed to reset attendance');
+      toast.error('Failed to reset attendance');
     }
   };
 
@@ -210,9 +226,23 @@ export default function AttendancePage() {
                             </div>
                           </td>
                           <td className="px-8 py-5">
-                            <span className="text-xs font-medium text-slate-500 uppercase tracking-tighter">
-                              {student.preferred_discipline?.replace('_', ' ') || 'General'}
-                            </span>
+                            {(() => {
+                              const discipline = getDisciplineMeta(student.preferred_discipline);
+                              return (
+                                <div className="flex items-center gap-2">
+                                  {(discipline?.imageUrl || discipline?.image_url) ? (
+                                    <img
+                                      src={discipline.imageUrl || discipline.image_url || ''}
+                                      alt={discipline.label}
+                                      className="size-6 rounded-md object-cover border border-slate-200"
+                                    />
+                                  ) : null}
+                                  <span className="text-xs font-medium text-slate-500 uppercase tracking-tighter">
+                                    {discipline?.label || student.preferred_discipline?.replace('_', ' ') || 'General'}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="px-8 py-5">
                             <div className="flex items-center justify-center gap-3">

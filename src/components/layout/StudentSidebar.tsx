@@ -7,7 +7,6 @@ import {
   LogOut,
   Calendar,
   Target,
-  Bell,
   ReceiptText,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -17,7 +16,7 @@ import { useSidebar } from '../../context/SidebarContext';
 import { CollapsibleSidebarShell } from './CollapsibleSidebarShell';
 import { SidebarNavItem } from './SidebarNavItem';
 import { AspectRatio } from '../ui/aspect-ratio';
-import { notificationsService } from '../../services/notificationsService';
+import { feesService, countActionableStudentFeeRequests } from '../../services/feesService';
 import mdplLogo from '@/assets/logo/mdpl-hr-logo.svg';
 import logoEmblem from '@/assets/logo/logo-emblem.svg';
 
@@ -27,26 +26,29 @@ export function StudentSidebar() {
   const { isCollapsed } = useSidebar();
   const navigate = useNavigate();
   const location = useLocation();
-  const [unreadCount, setUnreadCount] = React.useState(0);
+  const [feeActionCount, setFeeActionCount] = React.useState(0);
 
-  const refreshUnreadCount = React.useCallback(async () => {
+  const refreshFeeActionCount = React.useCallback(async () => {
     try {
-      const count = await notificationsService.getUnreadCount();
-      setUnreadCount(count);
+      const [requests, payments] = await Promise.all([
+        feesService.getMyFeeRequests(),
+        feesService.getMySubmissions(),
+      ]);
+      setFeeActionCount(countActionableStudentFeeRequests(requests, payments));
     } catch {
-      setUnreadCount(0);
+      setFeeActionCount(0);
     }
   }, []);
 
   React.useEffect(() => {
-    refreshUnreadCount();
-  }, [location.pathname, refreshUnreadCount]);
+    refreshFeeActionCount();
+  }, [location.pathname, refreshFeeActionCount]);
 
   React.useEffect(() => {
-    const handler = () => refreshUnreadCount();
-    window.addEventListener('notifications-updated', handler);
-    return () => window.removeEventListener('notifications-updated', handler);
-  }, [refreshUnreadCount]);
+    const handler = () => refreshFeeActionCount();
+    window.addEventListener('fee-requests-updated', handler);
+    return () => window.removeEventListener('fee-requests-updated', handler);
+  }, [refreshFeeActionCount]);
 
   const handleLogout = async () => {
     await logout();
@@ -57,8 +59,7 @@ export function StudentSidebar() {
     { icon: LayoutDashboard, label: t('dashboard'), path: '/dashboard' },
     { icon: Medal, label: t('beltGrading'), path: '/grading' },
     { icon: Target, label: 'Specialized Tracks', path: '/my-programs' },
-    { icon: ReceiptText, label: 'Fee Information', path: '/fees' },
-    { icon: Bell, label: 'Notifications', path: '/notifications', badgeCount: unreadCount },
+    { icon: ReceiptText, label: 'Fee Information', path: '/fees', badgeCount: feeActionCount },
     { icon: Calendar, label: 'My Attendance', path: '/attendance' },
     { icon: User, label: t('profile'), path: '/profile' },
   ];

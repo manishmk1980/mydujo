@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Plus, ListFilter, Trash2, Loader2 } from 'lucide-react';
 import { trainingCenterService, type TrainingCenter } from '../../services/trainingCenterService';
+import { instructorService } from '../../services/instructorService';
 
 export default function AdminTrainingCenters() {
   const [centers, setCenters] = useState<TrainingCenter[]>([]);
@@ -8,7 +9,8 @@ export default function AdminTrainingCenters() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: '', slug: '', address: '', pincode: '', city: '', state: '' });
+  const [instructorNames, setInstructorNames] = useState<string[]>([]);
+  const [form, setForm] = useState({ name: '', slug: '', address: '', instructorName: '', pincode: '', city: '', state: '' });
 
   const fetchCenters = async () => {
     try {
@@ -24,8 +26,21 @@ export default function AdminTrainingCenters() {
     }
   };
 
+  const fetchInstructorNames = async () => {
+    try {
+      const list = await instructorService.getAllInstructorsAdmin();
+      const names = (list || [])
+        .map((i) => i.fullName?.trim())
+        .filter((v): v is string => Boolean(v));
+      setInstructorNames(Array.from(new Set(names)));
+    } catch {
+      setInstructorNames([]);
+    }
+  };
+
   useEffect(() => {
     fetchCenters();
+    fetchInstructorNames();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,11 +52,12 @@ export default function AdminTrainingCenters() {
         name: form.name.trim(),
         slug: form.slug.trim() || undefined,
         address: form.address.trim() || undefined,
+        instructor_name: form.instructorName.trim() || undefined,
         pincode: form.pincode.trim() || undefined,
         city: form.city.trim() || undefined,
         state: form.state.trim() || undefined,
       });
-      setForm({ name: '', slug: '', address: '', pincode: '', city: '', state: '' });
+      setForm({ name: '', slug: '', address: '', instructorName: '', pincode: '', city: '', state: '' });
       setShowForm(false);
       await fetchCenters();
     } catch (err) {
@@ -109,6 +125,22 @@ export default function AdminTrainingCenters() {
                 onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               />
             </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-600 mb-1">Center Instructor Name</label>
+              <input
+                type="text"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                placeholder="e.g. Sensei Arjun"
+                value={form.instructorName}
+                onChange={(e) => setForm((f) => ({ ...f, instructorName: e.target.value }))}
+                list="instructor-name-options"
+              />
+              <datalist id="instructor-name-options">
+                {instructorNames.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-bold text-slate-600 mb-1">Pin Code</label>
@@ -152,7 +184,7 @@ export default function AdminTrainingCenters() {
             </button>
             <button
               type="button"
-              onClick={() => { setShowForm(false); setForm({ name: '', slug: '', address: '', pincode: '', city: '', state: '' }); }}
+              onClick={() => { setShowForm(false); setForm({ name: '', slug: '', address: '', instructorName: '', pincode: '', city: '', state: '' }); }}
               className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm"
             >
               Cancel
@@ -190,6 +222,11 @@ export default function AdminTrainingCenters() {
                       <p className="text-sm font-bold text-slate-400 mt-1.5">
                         {[c.address, c.pincode, c.city, c.state].filter(Boolean).join(' • ') || c.slug || '—'}
                       </p>
+                      {c.instructor_name && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Instructor: {c.instructor_name}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-700">

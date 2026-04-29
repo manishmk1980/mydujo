@@ -3,6 +3,7 @@ export interface TrainingCenter {
     name: string;
     slug: string;
     address?: string | null;
+    instructor_name?: string | null;
     pincode?: string | null;
     city?: string | null;
     state?: string | null;
@@ -49,7 +50,15 @@ export const trainingCenterService = {
         return (data.center ?? null) as TrainingCenter | null;
     },
 
-    async createTrainingCenter(payload: { name: string; slug?: string; address?: string; pincode?: string; city?: string; state?: string }) {
+    async createTrainingCenter(payload: {
+        name: string;
+        slug?: string;
+        address?: string;
+        instructor_name?: string;
+        pincode?: string;
+        city?: string;
+        state?: string;
+    }) {
         const res = await fetch(`${API_BASE}/training-centers`, {
             method: 'POST',
             headers: getAuthHeaders(),

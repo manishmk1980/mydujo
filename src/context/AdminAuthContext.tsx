@@ -10,6 +10,7 @@ interface AdminAuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
+  refreshAdminUser: () => Promise<void>;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -95,6 +96,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     setAdminUser(null);
   };
 
+  const refreshAdminUser = async () => {
+    const { user: authUser } = await authService.getSession();
+    if (!authUser) {
+      setAdminUser(null);
+      return;
+    }
+    const ok = await authService.checkIsAdmin(authUser.id);
+    setAdminUser(ok ? authUser : null);
+  };
+
   return (
     <AdminAuthContext.Provider
       value={{
@@ -103,6 +114,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         login,
         logout,
+        refreshAdminUser,
       }}
     >
       {children}

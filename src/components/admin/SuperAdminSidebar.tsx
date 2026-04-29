@@ -70,7 +70,7 @@ export function SuperAdminSidebar() {
       <div className="p-3 border-t border-slate-200">
         <div className="rounded-2xl bg-slate-50 p-4">
           <div className="mb-3">
-            <p className="text-sm font-bold text-slate-900 truncate">{adminUser?.email || 'Admin'}</p>
+            <p className="text-sm font-bold text-slate-900 truncate">{adminUser?.full_name || adminUser?.email || 'Admin'}</p>
             <p className="text-xs font-medium text-slate-500 truncate">Admin Panel</p>
           </div>
           <button

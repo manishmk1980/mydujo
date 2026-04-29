@@ -29,6 +29,7 @@ export interface DBStudent {
   parent_guardian_name?: string | null;
   aadhar_number?: string | null;
   qualification?: string | null;
+  belt_grade?: string | null;
   address?: string | null;
   pincode?: string | null;
   city?: string | null;

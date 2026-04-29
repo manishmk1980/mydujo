@@ -12,6 +12,7 @@ import {
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useFlashToast } from '../../components/ui/FlashToast';
 import { attendanceService, AttendanceRecord } from '../../services/attendanceService';
 import { cn } from '../../lib/utils';
 
@@ -20,6 +21,7 @@ import { cn } from '../../lib/utils';
  * attendance for assigned classes and students.
  */
 export default function InstructorAttendance() {
+    const toast = useFlashToast();
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -151,7 +153,7 @@ export default function InstructorAttendance() {
                                                                 try {
                                                                     await attendanceService.updateAttendanceStatus(record.id, 'approved');
                                                                     setRecords(prev => prev.map(r => r.id === record.id ? { ...r, status: 'approved' } : r));
-                                                                } catch (err) { alert('Failed to update status'); }
+                                                                } catch (err) { toast.error('Failed to update status'); }
                                                             }}
                                                             className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                                         >
@@ -162,7 +164,7 @@ export default function InstructorAttendance() {
                                                                 try {
                                                                     await attendanceService.updateAttendanceStatus(record.id, 'rejected');
                                                                     setRecords(prev => prev.map(r => r.id === record.id ? { ...r, status: 'rejected' } : r));
-                                                                } catch (err) { alert('Failed to update status'); }
+                                                                } catch (err) { toast.error('Failed to update status'); }
                                                             }}
                                                             className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                         >
