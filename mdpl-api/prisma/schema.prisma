@@ -1,0 +1,348 @@
+// Prisma schema for MySQL — see docs/MYSQL_PRISMA_MIGRATION_PLAN.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ----------------------------------------
+// Enums
+// ----------------------------------------
+enum Gender {
+  male
+  female
+  other
+}
+
+enum Discipline {
+  karate_shotokan
+  judo_kodokan
+  self_defense
+}
+
+enum StudentStatus {
+  draft
+  pending
+  approved
+  paused
+  rejected
+}
+
+enum AttendanceStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ClassSessionStatus {
+  scheduled
+  completed
+  cancelled
+  rescheduled
+}
+
+// ----------------------------------------
+// Auth: unified users + sessions
+// ----------------------------------------
+model User {
+  id               String    @id @default(uuid()) @db.Char(36)
+  email            String    @unique @db.VarChar(255)
+  passwordHash     String?   @map("password_hash") @db.VarChar(255)
+  emailVerifiedAt  DateTime? @map("email_verified_at") @db.DateTime(0)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+
+  student           Student?
+  instructor        Instructor?
+  adminUser         AdminUser?
+  userRoles         UserRole[]
+  refreshTokens     RefreshToken[]
+  validatedStudents Student[] @relation("ValidatedBy")
+
+  @@map("users")
+}
+
+model Role {
+  id        String    @id @default(uuid()) @db.Char(36)
+  name      String    @unique @db.VarChar(64)
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Char(36)
+  roleId String @map("role_id") @db.Char(36)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @map("user_id") @db.Char(36)
+  tokenHash String   @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.DateTime(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// ----------------------------------------
+// Admin flag
+// ----------------------------------------
+model AdminUser {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @unique @map("user_id") @db.Char(36)
+  email     String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_users")
+}
+
+// ----------------------------------------
+// Instructors
+// ----------------------------------------
+model Instructor {
+  id              String   @id @default(uuid()) @db.Char(36)
+  userId          String   @unique @map("user_id") @db.Char(36)
+  fullName        String   @map("full_name") @db.VarChar(255)
+  email           String   @db.VarChar(255)
+  phone           String?  @db.VarChar(32)
+  bio             String?  @db.VarChar(512)
+  city            String?  @db.VarChar(128)
+  state           String?  @db.VarChar(128)
+  profilePhotoUrl String?  @map("profile_photo_url") @db.VarChar(512)
+  isActive        Boolean  @default(true) @map("is_active")
+  canLogin        Boolean  @default(true) @map("can_login")
+  createdAt       DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  user           User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments    InstructorStudentAssignment[]
+  classSessions  ClassSession[]
+
+  @@map("instructors")
+}
+
+model InstructorStudentAssignment {
+  id                 String   @id @default(uuid()) @db.Char(36)
+  instructorId       String   @map("instructor_id") @db.Char(36)
+  studentId          String   @map("student_id") @db.Char(36)
+  assignedAt         DateTime @default(now()) @map("assigned_at") @db.DateTime(0)
+  assignedByUserId   String?  @map("assigned_by_user_id") @db.Char(36)
+  createdAt          DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  instructor         Instructor @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  student            Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([instructorId, studentId])
+  @@index([instructorId])
+  @@index([studentId])
+  @@map("instructor_student_assignments")
+}
+
+// ----------------------------------------
+// Training centers
+// ----------------------------------------
+model TrainingCenter {
+  id            String         @id @default(uuid()) @db.Char(36)
+  slug          String         @unique @db.VarChar(64)
+  name          String         @db.VarChar(255)
+  address       String?        @db.VarChar(512)
+  pincode       String?        @db.VarChar(16)
+  city          String?        @db.VarChar(128)
+  state         String?        @db.VarChar(128)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.DateTime(0)
+
+  students      Student[]
+  classSessions ClassSession[]
+
+  @@map("training_centers")
+}
+
+// ----------------------------------------
+// Pincode Lookup for auto-population
+// ----------------------------------------
+model PincodeLookup {
+  pincode   String @id @db.VarChar(16)
+  city      String @db.VarChar(128)
+  state     String @db.VarChar(128)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  @@map("pincode_lookups")
+}
+
+// ----------------------------------------
+// Students
+// ----------------------------------------
+model Student {
+  id                         String         @id @default(uuid()) @db.Char(36)
+  userId                     String?        @unique @map("user_id") @db.Char(36)
+  fullName                   String         @map("full_name") @db.VarChar(255)
+  email                      String         @db.VarChar(255)
+  phone                      String?        @db.VarChar(32)
+  dateOfBirth                DateTime?      @map("date_of_birth") @db.Date
+  gender                     Gender?
+  bloodGroup                 String?        @map("blood_group") @db.VarChar(16)
+  emergencyContact           String?        @map("emergency_contact") @db.VarChar(128)
+  parentGuardianName         String?        @map("parent_guardian_name") @db.VarChar(255)
+  aadharNumber               String?        @map("aadhar_number") @db.VarChar(32)
+  qualification              String?        @db.VarChar(128)
+  address                    String?        @db.VarChar(512)
+  pincode                    String?        @db.VarChar(16)
+  city                       String?        @db.VarChar(128)
+  state                      String?        @db.VarChar(128)
+  locality                   String?        @db.VarChar(128)
+  schoolCollegeName          String?        @map("school_college_name") @db.VarChar(255)
+  schoolCollegeLocationCity  String?        @map("school_college_location_city") @db.VarChar(128)
+  schoolCollegeLocationState String?        @map("school_college_location_state") @db.VarChar(128)
+  schoolCollegeLocationPin   String?        @map("school_college_location_pin") @db.VarChar(16)
+  instructorName             String?        @map("instructor_name") @db.VarChar(255)
+  preferredDiscipline        Discipline?    @map("preferred_discipline")
+  trainingCenterId           String?        @map("training_center_id") @db.Char(36)
+  profilePhotoUrl            String?        @map("profile_photo_url") @db.VarChar(512)
+  status                     StudentStatus  @default(pending)
+  marketingOptIn             Boolean        @default(false) @map("marketing_opt_in")
+  termsAcceptedAt            DateTime?      @map("terms_accepted_at") @db.DateTime(0)
+  validatedAt                DateTime?      @map("validated_at") @db.DateTime(0)
+  validatedBy                String?        @map("validated_by") @db.Char(36)
+  registrationId             String?        @unique @map("registration_id") @db.VarChar(32)
+  enrollmentId               String?        @unique @map("enrollment_id") @db.VarChar(64)
+
+  currentBelt                String?        @map("current_belt") @db.VarChar(64)
+  currentRankLabel           String?        @map("current_rank_label") @db.VarChar(64)
+  currentStripeLevel         Int?           @map("current_stripe_level")
+  nextGradingDate            DateTime?      @map("next_grading_date") @db.DateTime(0)
+
+  createdAt                  DateTime       @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt                  DateTime       @updatedAt @map("updated_at") @db.DateTime(0)
+
+  user                       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  trainingCenter             TrainingCenter?   @relation(fields: [trainingCenterId], references: [id], onDelete: SetNull)
+  validatedByUser            User?             @relation("ValidatedBy", fields: [validatedBy], references: [id], onDelete: SetNull)
+
+  attendance                 Attendance[]
+  beltRankHistory            BeltRankHistory[]
+  gradingProgress            GradingProgress?
+  instructorAssignments      InstructorStudentAssignment[]
+
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@map("students")
+}
+
+// ----------------------------------------
+// Attendance
+// ----------------------------------------
+model Attendance {
+  id             String            @id @default(uuid()) @db.Char(36)
+  studentId      String            @map("student_id") @db.Char(36)
+  classSessionId String?           @map("class_session_id") @db.Char(36)
+  attendanceDate DateTime          @map("attendance_date") @db.Date
+  checkInTime    DateTime?         @map("check_in_time") @db.DateTime(0)
+  checkOutTime   DateTime?         @map("check_out_time") @db.DateTime(0)
+  status         AttendanceStatus  @default(pending)
+  source         String            @default("student") @db.VarChar(32) // student, instructor, admin
+  notes          String?           @db.VarChar(512)
+  validatedAt    DateTime?         @map("validated_at") @db.DateTime(0)
+  validatedBy    String?           @map("validated_by") @db.Char(36)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.DateTime(0)
+
+  student        Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classSession   ClassSession?     @relation(fields: [classSessionId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([classSessionId])
+  @@index([attendanceDate])
+  @@index([status])
+  @@map("attendance")
+}
+
+// ----------------------------------------
+// Class sessions
+// ----------------------------------------
+model ClassSession {
+  id               String             @id @default(uuid()) @db.Char(36)
+  title            String             @db.VarChar(255)
+  classType        String?            @map("class_type") @db.VarChar(64)
+  trainingCenterId String?            @map("training_center_id") @db.Char(36)
+  instructorId     String?            @map("instructor_id") @db.Char(36)
+  instructorName   String?            @map("instructor_name") @db.VarChar(255)
+  discipline       Discipline?        @map("discipline")
+  sessionDate      DateTime           @map("session_date") @db.Date
+  startTime        DateTime?          @map("start_time") @db.DateTime(0)
+  endTime          DateTime?          @map("end_time") @db.DateTime(0)
+  status           ClassSessionStatus @default(scheduled)
+  notes            String?            @db.VarChar(512)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.DateTime(0)
+
+  trainingCenter   TrainingCenter?    @relation(fields: [trainingCenterId], references: [id], onDelete: SetNull)
+  instructor       Instructor?        @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  attendance       Attendance[]
+
+  @@index([trainingCenterId])
+  @@index([sessionDate])
+  @@index([status])
+  @@map("class_sessions")
+}
+
+// ----------------------------------------
+// Belt rank history
+// ----------------------------------------
+model BeltRankHistory {
+  id                  String    @id @default(uuid()) @db.Char(36)
+  studentId           String    @map("student_id") @db.Char(36)
+  beltName            String    @map("belt_name") @db.VarChar(64)
+  rankLabel           String?   @map("rank_label") @db.VarChar(64)
+  stripeLevel         Int?      @map("stripe_level")
+  gradingDate         DateTime? @map("grading_date") @db.DateTime(0)
+  nextEligibilityDate DateTime? @map("next_eligibility_date") @db.DateTime(0)
+  gradingScore        String?   @map("grading_score") @db.VarChar(64)
+  remarks             String?   @db.VarChar(512)
+  updatedBy           String?   @map("updated_by") @db.Char(36)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+
+  student             Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([gradingDate])
+  @@map("belt_rank_history")
+}
+
+// ----------------------------------------
+// Grading progress for assigned students
+// ----------------------------------------
+model GradingProgress {
+  id                         String   @id @default(uuid()) @db.Char(36)
+  studentId                  String   @unique @map("student_id") @db.Char(36)
+  syllabusCompletionPercent  Int      @default(0) @map("syllabus_completion_percent")
+  mockReviewStatus           String?  @map("mock_review_status") @db.VarChar(64)
+  readinessStatus            String?  @map("readiness_status") @db.VarChar(64)
+  attendanceEligibility      Boolean  @default(false) @map("attendance_eligibility")
+  instructorNotes            String?  @map("instructor_notes") @db.VarChar(512)
+  reviewedByInstructorId     String?  @map("reviewed_by_instructor_id") @db.Char(36)
+  reviewedAt                 DateTime? @map("reviewed_at") @db.DateTime(0)
+  createdAt                  DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt                  DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  student                    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_grading_progress")
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>MyDojo | India's Premier Martial Arts Academy Management</title>
+    <link>https://kreatorbox.com/mdpl-qa/</link>
+    <description>The leading martial arts management platform in India. Manage Karate, Judo, and MMA dojos with multi-lingual support and secure INR payments.</description>
+    <language>en-in</language>
+    <lastBuildDate>2025-03-02T00:00:00+05:30</lastBuildDate>
+    <atom:link href="https://kreatorbox.com/mdpl-qa/rss.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Welcome to MyDojo</title>
+      <link>https://kreatorbox.com/mdpl-qa/</link>
+      <description>Join India's premier martial arts academy management platform. Register for Karate, Judo, and MMA programs.</description>
+      <pubDate>2025-03-02T00:00:00+05:30</pubDate>
+      <guid isPermaLink="true">https://kreatorbox.com/mdpl-qa/</guid>
+    </item>
+  </channel>
+</rss>

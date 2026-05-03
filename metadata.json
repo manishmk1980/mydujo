@@ -1,0 +1,9 @@
+{
+  "name": "MyDojo",
+  "description": "India's premier martial arts academy management system with multi-lingual support and secure INR payments.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

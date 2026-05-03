@@ -1,0 +1,14 @@
+# SPA routing for shared hosting (Apache)
+# Serves /mdpl-qa/* routes correctly
+# Prerendered SEO pages: serve build/<segment>/index.html when present (initial HTML has correct meta)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /mdpl-qa/
+
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^(login|register|instructors|forgot-password|reset-password)/?$ $1/index.html [L]
+
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>

@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  
+  --color-brand: #FF4E00;
+  --color-bg-dark: var(--bg-dark);
+  --color-bg-surface: var(--bg-surface);
+  --color-text-main: var(--text-main);
+  --color-text-dim: var(--text-dim);
+  --color-border-main: var(--border-main);
+  --color-accent-surface: var(--accent-surface);
+}
+
+:root {
+  --bg-dark: #0B0F19;
+  --bg-surface: #161B28;
+  --text-main: #FFFFFF;
+  --text-dim: rgba(255, 255, 255, 0.4);
+  --border-main: rgba(255, 255, 255, 0.05);
+  --accent-surface: rgba(255, 255, 255, 0.05);
+}
+
+.light {
+  --bg-dark: #FFFFFF;
+  --bg-surface: #F8FAFC;
+  --text-main: #0F172A;
+  --text-dim: #334155;
+  --border-main: rgba(15, 23, 42, 0.12);
+  --accent-surface: #F1F5F9;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-bg-dark text-text-main font-sans antialiased transition-colors duration-300;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold;
+  }
+}
+
+@layer utilities {
+  .glass-effect {
+    @apply bg-bg-surface/40 backdrop-blur-md border border-border-main;
+  }
+}
