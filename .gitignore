@@ -1,0 +1,42 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+/generated/prisma
+server/uploads/
+
+
+.env
+.env.local
+mdpl-api/.env
+mdpl-api/.env.local
+# Local/manual backup files
+*.backup-*
+*.backup-*
+*backup-*
+src/components/public-backup-*/
+src/components/public_unused_backup_*/
+src/pages/public-backup-*/
+src/pages/public-backup-before-theme-fix-*/
+
+# Vite generated root assets from deployed build
+assets/index-*.js
+assets/index-*.css
+assets/*.map
+
+# Runtime/test artifacts
+cookies.txt
+
+# Backend local backup files
+mdpl-api/src/**/*.backup-*
+
+.env
+node_modules/
+build/
+server/node_modules/
+mdpl-api/node_modules/
