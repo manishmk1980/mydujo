@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Building2,
   TrendingUp,
   Users,
   MapPin,
@@ -87,12 +88,36 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const stats = [
-    { label: 'Total Revenue', value: '₹12.4L', icon: TrendingUp, color: 'text-rose-600', bg: 'bg-rose-100' },
-    { label: 'Active Students', value: '842', icon: Users, color: 'text-sky-600', bg: 'bg-sky-100' },
-    { label: 'Training Centers', value: '12', icon: MapPin, color: 'text-[var(--admin-primary)]', bg: 'bg-[var(--admin-primary-soft)]' },
-    { label: 'Top Instructor', value: 'Sensei Joe', icon: GraduationCap, color: 'text-rose-600', bg: 'bg-rose-100' },
-  ];
+const stats = [
+  {
+    label: 'Total Revenue',
+    value: '₹0',
+    icon: TrendingUp,
+    color: 'text-rose-600',
+    bg: 'bg-rose-100',
+  },
+  {
+    label: 'Active Students',
+    value: '0',
+    icon: Users,
+    color: 'text-sky-600',
+    bg: 'bg-sky-100',
+  },
+  {
+    label: 'Training Centers',
+    value: '0',
+    icon: Building2,
+    color: 'text-amber-600',
+    bg: 'bg-amber-100',
+  },
+  {
+    label: 'Top Instructor',
+    value: 'Not available',
+    icon: GraduationCap,
+    color: 'text-rose-600',
+    bg: 'bg-rose-100',
+  },
+];
 
   const totalFeeRequests = feeRequests.length;
   const pendingPaymentCount = feeRequests.filter((r) => {
@@ -170,27 +195,27 @@ export default function AdminDashboard() {
   const monthlyRows: MonthlyInsightRow[] = [
     {
       label: 'Total Revenue',
-      value: stats[0].value,
-      detail: 'Total revenue generated this month',
-      icon: stats[0].icon,
+      value: '₹0',
+      detail: 'No verified payment revenue recorded yet',
+      icon: TrendingUp,
+      color: 'text-rose-600',
+      bg: 'bg-rose-100',
     },
     {
       label: 'Active Students',
-      value: stats[1].value,
-      detail: 'Students actively using the portal',
-      icon: stats[1].icon,
-    },
-    {
-      label: 'Top Instructor',
-      value: stats[3].value,
-      detail: 'Highest performing instructor this month',
-      icon: stats[3].icon,
+      value: activePortal,
+      detail: 'Live active portal count from student records',
+      icon: Users,
+      color: 'text-sky-600',
+      bg: 'bg-sky-100',
     },
     {
       label: 'Centers',
-      value: String(stats[2].value),
-      detail: 'Training center coverage',
-      icon: stats[2].icon,
+      value: trainingCentersValue,
+      detail: 'Training center coverage from available records',
+      icon: Building2,
+      color: 'text-amber-600',
+      bg: 'bg-amber-100',
     },
   ];
 

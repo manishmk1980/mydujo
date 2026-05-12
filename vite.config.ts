@@ -5,11 +5,13 @@ import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+
   return {
     plugins: [react(), tailwindcss()],
     base: '/',
     build: {
       outDir: 'build',
+      chunkSizeWarningLimit: 1500,
     },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
@@ -23,7 +25,6 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Optional: same-origin `/api/*` → mdpl-api (use when VITE_API_URL is unset and client uses /api)
       proxy: {
         '/api': {
           target: 'http://localhost:4000',
