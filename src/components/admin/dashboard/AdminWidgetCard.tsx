@@ -1,32 +1,34 @@
-import React, { ReactNode } from 'react';
-import { cn } from '../../../lib/utils';
+import type { ReactNode } from 'react';
 
-interface AdminWidgetCardProps {
+type AdminWidgetCardProps = {
   title: string;
   subtitle?: string;
-  action?: ReactNode;
   children: ReactNode;
   className?: string;
-}
+};
 
-export function AdminWidgetCard({ title, subtitle, action, children, className }: AdminWidgetCardProps) {
+export function AdminWidgetCard({
+  title,
+  subtitle,
+  children,
+  className = '',
+}: AdminWidgetCardProps) {
   return (
     <section
-      className={cn(
-        'flex flex-col rounded-[var(--admin-radius-card)] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-[var(--admin-shadow-card)] sm:p-6',
-        className
-      )}
+      className={[
+        'rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5',
+        className,
+      ].join(' ')}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-4">
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold tracking-tight text-[var(--admin-text)] font-['Space_Grotesk',sans-serif]">
-            {title}
-          </h2>
-          {subtitle ? <p className="mt-0.5 text-sm text-[var(--admin-text-muted)]">{subtitle}</p> : null}
-        </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+      <div className="mb-5">
+        <h2 className="text-lg font-black text-slate-950">{title}</h2>
+
+        {subtitle ? (
+          <p className="mt-1 text-sm font-medium text-slate-500">{subtitle}</p>
+        ) : null}
       </div>
-      <div className="flex-1 min-h-0">{children}</div>
+
+      {children}
     </section>
   );
 }

@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import { ArrowRight, Menu, Moon, Sun, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Menu, Moon, Sun, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { usePublicTheme } from "../../context/PublicThemeContext";
@@ -12,9 +12,19 @@ const navItems = [
   { label: "Events", href: "/events" },
 ];
 
+const signInItems = [
+  { label: "Student Sign In", href: "/student/login" },
+  { label: "Instructor Sign In", href: "/instructor/login" },
+  { label: "Admin Sign In", href: "/admin" },
+];
+
 function navLinkIsActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function signInIsActive(pathname: string) {
+  return signInItems.some((item) => navLinkIsActive(pathname, item.href));
 }
 
 const headerFixedClass =
@@ -58,6 +68,8 @@ export default function PublicNavbar() {
 
   const joinCtaClass =
     "inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full bg-orange-600 px-2.5 text-[9px] font-black uppercase tracking-wide text-white shadow-xl shadow-orange-600/30 transition-colors hover:bg-orange-700 min-[360px]:px-3.5 min-[360px]:text-[10px] sm:px-6 sm:text-[11px] sm:tracking-[0.18em]";
+
+  const signInActive = signInIsActive(pathname);
 
   return (
     <header className={headerFixedClass}>
@@ -108,6 +120,42 @@ export default function PublicNavbar() {
               {isDark ? <Sun size={20} strokeWidth={2.6} /> : <Moon size={20} strokeWidth={2.6} />}
             </button>
 
+            <div className="group relative hidden sm:block">
+              <button
+                type="button"
+                className={[
+                  "mydojo-nav-text inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-4 text-[10px] font-black uppercase tracking-[0.18em] shadow-sm backdrop-blur-xl transition-colors",
+                  signInActive
+                    ? "border-orange-600 bg-orange-600 text-white"
+                    : "border-slate-300 bg-white/80 text-slate-900 hover:border-orange-600 hover:text-orange-600 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:border-orange-500 dark:hover:text-orange-400",
+                ].join(" ")}
+                aria-haspopup="true"
+              >
+                Sign In
+                <ChevronDown size={13} strokeWidth={3} className="shrink-0" />
+              </button>
+
+              <div className="invisible absolute right-0 top-full z-[1000] mt-3 w-60 translate-y-2 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-2xl shadow-slate-950/12 transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 dark:border-white/10 dark:bg-[#0b101b] dark:shadow-black/40">
+                {signInItems.map((item) => {
+                  const active = navLinkIsActive(pathname, item.href);
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className={[
+                        "block rounded-xl px-4 py-3 text-sm font-bold transition",
+                        active
+                          ? "bg-orange-600 text-white"
+                          : "text-slate-700 hover:bg-orange-50 hover:text-orange-600 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-orange-400",
+                      ].join(" ")}
+                    >
+                      {item.label}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+
             <a href="/join-mydojo" className={`${joinCtaClass} max-[359px]:min-w-0`}>
               <span className="max-[359px]:hidden">Join MyDojo</span>
               <span className="hidden max-[359px]:inline">Join</span>
@@ -132,6 +180,29 @@ export default function PublicNavbar() {
                   </a>
                 );
               })}
+
+              <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-white/5">
+                <p className="mydojo-nav-text px-3 pb-2 pt-1 text-[10px] text-orange-600">
+                  Sign In
+                </p>
+
+                <div className="flex flex-col gap-1">
+                  {signInItems.map((item) => {
+                    const active = navLinkIsActive(pathname, item.href);
+                    return (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        className={mobileLinkClass(active)}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        {item.label}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+
               <a
                 href="/join-mydojo"
                 className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-orange-600 px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-orange-600/25"
