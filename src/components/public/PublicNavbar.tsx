@@ -1,6 +1,6 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, Menu, Moon, Sun, X } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { usePublicTheme } from "../../context/PublicThemeContext";
 
@@ -15,7 +15,7 @@ const navItems = [
 const signInItems = [
   { label: "Student Sign In", href: "/student/login" },
   { label: "Instructor Sign In", href: "/instructor/login" },
-  { label: "Admin Sign In", href: "/admin" },
+  { label: "Admin Sign In", href: "/admin/login" },
 ];
 
 function navLinkIsActive(pathname: string, href: string) {
@@ -34,10 +34,37 @@ export default function PublicNavbar() {
   const { isDark, toggleTheme } = usePublicTheme();
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const signInRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMobileOpen(false);
+    setSignInOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!signInOpen) return;
+
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!signInRef.current) return;
+      if (!signInRef.current.contains(event.target as Node)) {
+        setSignInOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSignInOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [signInOpen]);
 
   const logoClass =
     "h-9 w-auto max-w-[min(38vw,9.5rem)] object-contain object-left sm:h-10 sm:max-w-[11rem] md:h-11 md:max-w-none";
@@ -75,25 +102,25 @@ export default function PublicNavbar() {
     <header className={headerFixedClass}>
       <div className="relative w-full min-w-0 max-w-full">
         <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-1.5 sm:gap-3 md:gap-4">
-          <a
-            href="/"
+          <Link
+            to="/"
             className="flex min-w-0 max-w-[42%] shrink items-center py-0.5 transition hover:opacity-95 sm:max-w-none md:px-1"
           >
             <img src="/brand/mdpl-logo.svg" alt="MDPL MyDojo" className={logoClass} />
-          </a>
+          </Link>
 
           <nav className={navShellClass} aria-label="Primary">
             {navItems.map((item) => {
               const active = navLinkIsActive(pathname, item.href);
               return (
-                <a
+                <Link
                   key={item.href}
-                  href={item.href}
+                  to={item.href}
                   className={`${navLinkBase} ${active ? navLinkActive : navLinkInactive}`}
                   aria-current={active ? "page" : undefined}
                 >
                   {item.label}
-                </a>
+                </Link>
               );
             })}
           </nav>
@@ -120,28 +147,47 @@ export default function PublicNavbar() {
               {isDark ? <Sun size={20} strokeWidth={2.6} /> : <Moon size={20} strokeWidth={2.6} />}
             </button>
 
-            <div className="group relative hidden sm:block">
+            <div ref={signInRef} className="relative hidden sm:block">
               <button
                 type="button"
+                onClick={() => setSignInOpen((open) => !open)}
                 className={[
                   "mydojo-nav-text inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-4 text-[10px] font-black uppercase tracking-[0.18em] shadow-sm backdrop-blur-xl transition-colors",
-                  signInActive
+                  signInActive || signInOpen
                     ? "border-orange-600 bg-orange-600 text-white"
                     : "border-slate-300 bg-white/80 text-slate-900 hover:border-orange-600 hover:text-orange-600 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:border-orange-500 dark:hover:text-orange-400",
                 ].join(" ")}
-                aria-haspopup="true"
+                aria-haspopup="menu"
+                aria-expanded={signInOpen}
+                aria-controls="public-nav-signin-menu"
               >
                 Sign In
-                <ChevronDown size={13} strokeWidth={3} className="shrink-0" />
+                <ChevronDown
+                  size={13}
+                  strokeWidth={3}
+                  className={`shrink-0 transition-transform duration-200 ${signInOpen ? "rotate-180" : ""}`}
+                />
               </button>
 
-              <div className="invisible absolute right-0 top-full z-[1000] mt-3 w-60 translate-y-2 rounded-2xl border border-slate-200 bg-white p-2 opacity-0 shadow-2xl shadow-slate-950/12 transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 dark:border-white/10 dark:bg-[#0b101b] dark:shadow-black/40">
+              <div
+                id="public-nav-signin-menu"
+                role="menu"
+                aria-label="Sign in options"
+                className={[
+                  "absolute right-0 top-full z-[1000] mt-3 w-60 max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-950/12 transition-all duration-200 dark:border-white/10 dark:bg-[#0b101b] dark:shadow-black/40",
+                  signInOpen
+                    ? "visible translate-y-0 opacity-100"
+                    : "invisible translate-y-2 opacity-0 pointer-events-none",
+                ].join(" ")}
+              >
                 {signInItems.map((item) => {
                   const active = navLinkIsActive(pathname, item.href);
                   return (
-                    <a
+                    <Link
                       key={item.href}
-                      href={item.href}
+                      to={item.href}
+                      role="menuitem"
+                      onClick={() => setSignInOpen(false)}
                       className={[
                         "block rounded-xl px-4 py-3 text-sm font-bold transition",
                         active
@@ -150,17 +196,17 @@ export default function PublicNavbar() {
                       ].join(" ")}
                     >
                       {item.label}
-                    </a>
+                    </Link>
                   );
                 })}
               </div>
             </div>
 
-            <a href="/join-mydojo" className={`${joinCtaClass} max-[359px]:min-w-0`}>
+            <Link to="/join-mydojo" className={`${joinCtaClass} max-[359px]:min-w-0`}>
               <span className="max-[359px]:hidden">Join MyDojo</span>
               <span className="hidden max-[359px]:inline">Join</span>
               <ArrowRight size={14} strokeWidth={3} className="hidden shrink-0 sm:inline" />
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -170,14 +216,14 @@ export default function PublicNavbar() {
               {navItems.map((item) => {
                 const active = navLinkIsActive(pathname, item.href);
                 return (
-                  <a
+                  <Link
                     key={item.href}
-                    href={item.href}
+                    to={item.href}
                     className={mobileLinkClass(active)}
                     aria-current={active ? "page" : undefined}
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 );
               })}
 
@@ -190,26 +236,26 @@ export default function PublicNavbar() {
                   {signInItems.map((item) => {
                     const active = navLinkIsActive(pathname, item.href);
                     return (
-                      <a
+                      <Link
                         key={item.href}
-                        href={item.href}
+                        to={item.href}
                         className={mobileLinkClass(active)}
                         aria-current={active ? "page" : undefined}
                       >
                         {item.label}
-                      </a>
+                      </Link>
                     );
                   })}
                 </div>
               </div>
 
-              <a
-                href="/join-mydojo"
+              <Link
+                to="/join-mydojo"
                 className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-orange-600 px-4 py-3 text-center text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-orange-600/25"
               >
                 Join MyDojo
                 <ArrowRight size={18} strokeWidth={3} className="shrink-0" />
-              </a>
+              </Link>
             </div>
           </nav>
         ) : null}

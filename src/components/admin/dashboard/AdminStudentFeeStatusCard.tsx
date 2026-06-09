@@ -8,7 +8,7 @@ import { AdminWidgetCard } from './AdminWidgetCard';
 export type DisplayFeeStatus = 'paid' | 'pending' | 'overdue' | 'partial' | 'other';
 
 function mapFeeRequestToDisplay(fr: FeeRequestDTO): { label: string; tone: DisplayFeeStatus } {
-  const s = fr.computed_status ?? fr.status;
+  const s = (fr.computed_status ?? fr.status) as string | undefined;
   switch (s) {
     case 'PAID':
       return { label: 'Paid', tone: 'paid' };
@@ -21,7 +21,7 @@ function mapFeeRequestToDisplay(fr: FeeRequestDTO): { label: string; tone: Displ
     case 'CANCELLED':
       return { label: 'Cancelled', tone: 'other' };
     default:
-      return { label: s.replace(/_/g, ' '), tone: 'other' };
+      return { label: (s ?? '—').replace(/_/g, ' '), tone: 'other' };
   }
 }
 

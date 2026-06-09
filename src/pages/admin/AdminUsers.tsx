@@ -20,6 +20,7 @@ import {
 import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminTableCard } from '../../components/admin/ui/AdminTableCard';
 import { AdminBadge } from '../../components/admin/ui/AdminBadge';
+import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
 import { useAdminConfirm } from '../../components/admin/ui/AdminConfirmProvider';
 import { authService } from '../../services/authService';
 
@@ -189,14 +190,10 @@ function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const DEMO_USERS: AdminUser[] = [
-  { id: '1', email: 'admin@mydojo.com', fullName: 'MDPL Admin', role: 'SUPER_ADMIN', status: 'ACTIVE', lastActive: '2 mins ago' },
-  { id: '2', email: 'staff1@mydojo.com', fullName: 'Staff Member', role: 'OPERATIONS_ADMIN', status: 'ACTIVE', lastActive: '1 hr ago' },
-  { id: '3', email: 'manager@mydojo.com', fullName: 'Training Manager', role: 'CENTER_ADMIN', status: 'ACTIVE', lastActive: '4 hrs ago' },
-];
-
 export default function AdminUsers() {
-  const [users, setUsers] = useState<AdminUser[]>(DEMO_USERS);
+  // Real users will be loaded here once the admin user-management API is wired.
+  // Until then the list stays empty so no fake records leak into the operations UI.
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [flash, setFlash] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const confirm = useAdminConfirm();
@@ -279,7 +276,7 @@ export default function AdminUsers() {
       {/* Backend pending banner */}
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
         <p className="font-bold">User management API pending</p>
-        <p className="mt-1 text-amber-700">The user directory below shows demo data. Creating, editing, or disabling users is a UI shell — no backend calls are made until the admin user API is connected.</p>
+        <p className="mt-1 text-amber-700">Real admin users will appear here once the user-management API is connected. Creating, editing, or disabling users is currently a local UI preview only — no backend calls are made.</p>
       </div>
 
       {flash && (
@@ -304,7 +301,14 @@ export default function AdminUsers() {
       </div>
 
       {/* User table */}
-      <AdminTableCard title="User directory" subtitle="Demo data — real users load once user API is connected.">
+      <AdminTableCard title="User directory" subtitle="Real admin users will load here once the user API is connected.">
+        {users.length === 0 ? (
+          <AdminEmptyState
+            title="No admin users yet"
+            description="Once the admin user-management API is enabled, accounts you create will appear here."
+            className="m-4"
+          />
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-left text-sm">
             <thead>
@@ -385,6 +389,7 @@ export default function AdminUsers() {
             </tbody>
           </table>
         </div>
+        )}
       </AdminTableCard>
 
       {/* Role legend */}

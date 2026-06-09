@@ -369,4 +369,53 @@ router.get("/me", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/logout", requireAuth, async (req, res) => {
+  await prisma.refreshToken.deleteMany({ where: { userId: req.auth.userId } });
+  res.clearCookie("refresh_token", { path: "/" });
+  return res.json({ ok: true });
+});
+
+router.get("/admin/security", requireAuth, async (req, res) => {
+  if (!(await userHasAdminRole(req.auth.userId))) return res.status(403).json({ error: "not authorized" });
+  const user = await prisma.user.findUnique({ where: { id: req.auth.userId } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  return res.json({ email: user.email, hasPassword: Boolean(user.passwordHash) });
+});
+
+router.patch("/admin/security", requireAuth, async (req, res) => {
+  if (!(await userHasAdminRole(req.auth.userId))) return res.status(403).json({ error: "not authorized" });
+  const user = await prisma.user.findUnique({ where: { id: req.auth.userId } });
+  const currentPassword = String(req.body?.currentPassword || "");
+  if (!user?.passwordHash || !currentPassword || !(await argon2.verify(user.passwordHash, currentPassword))) {
+    return res.status(401).json({ error: "Current password is incorrect" });
+  }
+  const newEmail = req.body?.newEmail ? String(req.body.newEmail).trim().toLowerCase() : undefined;
+  const newPassword = req.body?.newPassword ? String(req.body.newPassword) : undefined;
+  if (newPassword && newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+  await prisma.user.update({ where: { id: user.id }, data: { email: newEmail, passwordHash: newPassword ? await argon2.hash(newPassword) : undefined } });
+  if (newEmail) await prisma.adminUser.updateMany({ where: { userId: user.id }, data: { email: newEmail } });
+  await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+  return res.json({ ok: true, message: "Security settings updated", requireRelogin: true });
+});
+
+router.get("/admin/profile", requireAuth, async (req, res) => {
+  if (!(await userHasAdminRole(req.auth.userId))) return res.status(403).json({ error: "not authorized" });
+  const user = await prisma.user.findUnique({ where: { id: req.auth.userId }, include: { adminUser: true } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  return res.json({ id: user.id, email: user.email, displayName: user.adminUser?.displayName || null, createdAt: user.createdAt });
+});
+
+router.patch("/admin/profile", requireAuth, async (req, res) => {
+  if (!(await userHasAdminRole(req.auth.userId))) return res.status(403).json({ error: "not authorized" });
+  const user = await prisma.user.findUnique({ where: { id: req.auth.userId } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  const displayName = req.body?.displayName == null ? null : String(req.body.displayName).trim() || null;
+  const profile = await prisma.adminUser.upsert({
+    where: { userId: user.id },
+    update: { displayName, email: user.email },
+    create: { userId: user.id, email: user.email, displayName },
+  });
+  return res.json({ ok: true, profile: { displayName: profile.displayName } });
+});
+
 export default router;

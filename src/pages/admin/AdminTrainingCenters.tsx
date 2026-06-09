@@ -61,9 +61,9 @@ function CenterFormModal({ title, form, onChange, onSubmit, onCancel, submitting
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm sm:p-4" onClick={onCancel}>
       <div className="w-full max-w-2xl overflow-y-auto max-h-[94dvh] rounded-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
-          <h3 className="font-bold text-slate-900">{title}</h3>
-          <button onClick={onCancel} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-6">
+          <h3 className="min-w-0 truncate font-bold text-slate-900">{title}</h3>
+          <button onClick={onCancel} aria-label="Close" className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
         </div>
         <div className="p-5 sm:p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -98,9 +98,9 @@ function CenterFormModal({ title, form, onChange, onSubmit, onCancel, submitting
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4 sm:px-6">
-          <button onClick={onCancel} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button onClick={onSubmit} disabled={submitting || !form.name.trim()} className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] disabled:opacity-50">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-5 py-4 sm:px-6">
+          <button onClick={onCancel} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex-none">Cancel</button>
+          <button onClick={onSubmit} disabled={submitting || !form.name.trim()} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] disabled:opacity-50 sm:flex-none">
             {submitting && <Loader2 className="size-4 animate-spin" />} Save
           </button>
         </div>
@@ -118,20 +118,20 @@ function CenterDetailDrawer({ center, onClose, onEdit, onPause, onArchive }: {
   const status = resolveStatus(center);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-2 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--admin-warning)_15%,transparent)]">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--admin-warning)_15%,transparent)]">
               <MapPin className="size-5 text-[var(--admin-warning)]" />
             </div>
-            <div>
-              <p className="font-bold text-slate-900">{center.name}</p>
+            <div className="min-w-0">
+              <p className="truncate font-bold text-slate-900">{center.name}</p>
               <StatusBadge status={status} />
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
+          <button onClick={onClose} aria-label="Close" className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
         </div>
-        <div className="divide-y divide-slate-100 px-5 py-4 space-y-0">
+        <div className="flex-1 divide-y divide-slate-100 overflow-y-auto px-5 py-4 space-y-0">
           <InfoRow label="Slug" value={center.slug || '—'} />
           <InfoRow label="Address" value={[center.address, center.pincode, center.city, center.state].filter(Boolean).join(', ') || '—'} />
           <InfoRow label="Primary Instructor" value={center.instructor_name || '—'} />
@@ -139,9 +139,9 @@ function CenterDetailDrawer({ center, onClose, onEdit, onPause, onArchive }: {
           {center.status_note && <InfoRow label="Status Note" value={center.status_note} />}
           <div className="py-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Assignments</p>
-            <div className="flex gap-4 text-sm">
-              <div className="flex items-center gap-1.5 text-slate-500"><Users className="size-4" /> Students: —</div>
-              <div className="flex items-center gap-1.5 text-slate-500"><UserCog className="size-4" /> Instructors: —</div>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+              <div className="flex items-center gap-1.5 text-slate-500"><Users className="size-4 shrink-0" /> Students: —</div>
+              <div className="flex items-center gap-1.5 text-slate-500"><UserCog className="size-4 shrink-0" /> Instructors: —</div>
             </div>
           </div>
         </div>
@@ -165,9 +165,9 @@ function CenterDetailDrawer({ center, onClose, onEdit, onPause, onArchive }: {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="py-2.5">
+    <div className="min-w-0 py-2.5">
       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold text-slate-800">{value}</p>
+      <p className="mt-0.5 break-words text-sm font-semibold text-slate-800">{value}</p>
     </div>
   );
 }
@@ -470,20 +470,22 @@ export default function AdminTrainingCenters() {
             {filtered.map((c) => {
               const status = resolveStatus(c);
               return (
-                <div key={c.id} className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50/70">
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--admin-warning)_15%,transparent)]">
-                    <MapPin className="size-5 text-[var(--admin-warning)]" />
+                <div key={c.id} className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex min-w-0 items-start gap-3 sm:flex-1 sm:items-center sm:gap-4">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--admin-warning)_15%,transparent)]">
+                      <MapPin className="size-5 text-[var(--admin-warning)]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-bold text-slate-900">{c.name}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {[c.address, c.city, c.state, c.pincode].filter(Boolean).join(' · ') || c.slug || '—'}
+                      </p>
+                      {c.instructor_name && <p className="mt-0.5 truncate text-xs text-slate-400">Instructor: {c.instructor_name}</p>}
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold text-slate-900">{c.name}</p>
-                    <p className="truncate text-xs text-slate-500">
-                      {[c.address, c.city, c.state, c.pincode].filter(Boolean).join(' · ') || c.slug || '—'}
-                    </p>
-                    {c.instructor_name && <p className="mt-0.5 text-xs text-slate-400">Instructor: {c.instructor_name}</p>}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                     <StatusBadge status={status} />
-                    <button onClick={() => setDetailCenter(c)} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">View</button>
+                    <button onClick={() => setDetailCenter(c)} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:min-h-0">View</button>
                     <ActionMenu
                       onView={() => setDetailCenter(c)}
                       onEdit={() => openEdit(c)}
@@ -554,12 +556,12 @@ export default function AdminTrainingCenters() {
                 <textarea rows={3} value={pauseReason} onChange={(e) => setPauseReason(e.target.value)} placeholder="Briefly explain why this center is being paused…" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none" />
               </div>
             )}
-            <div className="mt-5 flex justify-end gap-3">
-              <button onClick={() => setPauseDialog(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+            <div className="mt-5 flex flex-wrap justify-end gap-3">
+              <button onClick={() => setPauseDialog(null)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex-none">Cancel</button>
               <button
                 disabled={submitting || (resolveStatus(pauseDialog.center) !== 'PAUSED' && !pauseReason.trim())}
                 onClick={() => void confirmPause()}
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-warning)] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--admin-warning)] px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50 sm:flex-none"
               >
                 {submitting && <Loader2 className="size-4 animate-spin" />}
                 {resolveStatus(pauseDialog.center) === 'PAUSED' ? 'Reactivate' : 'Pause center'}

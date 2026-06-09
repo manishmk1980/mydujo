@@ -157,7 +157,12 @@ async function updateApplicationStatus(
   const res = await fetch(`${API_BASE}/admin/instructor-applications/${id}`, {
     method: 'PATCH',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(localStorage.getItem('mdpl_access_token_admin')
+        ? { Authorization: `Bearer ${localStorage.getItem('mdpl_access_token_admin')}` }
+        : {}),
+    },
     body: JSON.stringify({ status, ...extra }),
   });
   if (!res.ok) {
@@ -315,12 +320,13 @@ interface DetailDrawerProps {
   app: InstructorApplication;
   onClose: () => void;
   onAction: (action: 'approve' | 'reject' | 'request_info' | 'archive' | 'assign') => void;
+  onDelete: (app: InstructorApplication) => void;
   actionInProgress: boolean;
   trainingCenters: TrainingCenter[];
   disciplines: DisciplineOption[];
 }
 
-function DetailDrawer({ app, onClose, onAction, actionInProgress, trainingCenters, disciplines }: DetailDrawerProps) {
+function DetailDrawer({ app, onClose, onAction, onDelete, actionInProgress, trainingCenters, disciplines }: DetailDrawerProps) {
   const centerName =
     app.assignedCenterName ||
     trainingCenters.find((c) => c.id === app.assignedCenterId)?.name ||
@@ -522,9 +528,9 @@ export default function AdminInstructorApplications() {
     const ok = await confirm({
       title: 'Delete instructor application?',
       description: `This will permanently delete ${app.fullName || app.email || 'this instructor'} from instructor records. This action cannot be undone.`,
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      tone: 'danger',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: 'danger',
     });
 
     if (!ok) return;
@@ -851,6 +857,7 @@ export default function AdminInstructorApplications() {
             setAssignOpen(false);
           }}
           onAction={(a) => void handleAction(a)}
+          onDelete={(app) => void handleDeleteApplication(app)}
           actionInProgress={actionInProgress}
           trainingCenters={trainingCenters}
           disciplines={disciplines}

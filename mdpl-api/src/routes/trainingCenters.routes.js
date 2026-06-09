@@ -57,6 +57,7 @@ router.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
         pincode: b.pincode ? String(b.pincode).trim() || null : null,
         city: b.city ? String(b.city).trim() || null : null,
         state: b.state ? String(b.state).trim() || null : null,
+        instructorName: b.instructor_name ? String(b.instructor_name).trim() || null : null,
       },
     });
     return res.status(201).json({ center });
@@ -64,6 +65,42 @@ router.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
     console.error("POST /training-centers error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+router.patch("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
+  const existing = await prisma.trainingCenter.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Training center not found" });
+  const b = req.body || {};
+  const status = b.status ? String(b.status).toUpperCase() : undefined;
+  if (status && !["ACTIVE", "PAUSED", "ARCHIVED"].includes(status)) return res.status(400).json({ error: "Invalid status" });
+  const center = await prisma.trainingCenter.update({
+    where: { id: existing.id },
+    data: {
+      name: b.name,
+      slug: b.slug,
+      address: b.address,
+      instructorName: b.instructor_name,
+      pincode: b.pincode,
+      city: b.city,
+      state: b.state,
+      status,
+      statusNote: b.pause_reason,
+      archivedAt: status === "ARCHIVED" ? new Date() : status ? null : undefined,
+    },
+  });
+  return res.json({ center });
+});
+
+router.delete("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
+  const existing = await prisma.trainingCenter.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Training center not found" });
+  const activeStudents = await prisma.student.count({ where: { trainingCenterId: existing.id, status: "approved" } });
+  if (activeStudents) return res.status(409).json({ error: "Training center has active students", activeStudents, activeInstructors: 0 });
+  const center = await prisma.trainingCenter.update({
+    where: { id: existing.id },
+    data: { status: "ARCHIVED", statusNote: req.body?.reason || null, archivedAt: new Date() },
+  });
+  return res.json({ center });
 });
 
 export default router;

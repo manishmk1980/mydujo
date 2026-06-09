@@ -136,4 +136,36 @@ router.post("/register", async (req, res) => {
   }
 });
 
+router.post("/register/instructor", async (req, res) => {
+  try {
+    const b = req.body || {};
+    const fullName = String(b.full_name || "").trim();
+    const email = String(b.email || "").trim().toLowerCase();
+    const password = String(b.password || "");
+    if (!fullName || !email || password.length < 6) return res.status(400).json({ error: "full_name, email and password are required" });
+    if (await prisma.user.findUnique({ where: { email } })) return res.status(409).json({ error: "Email already registered" });
+    const role = await prisma.role.findUnique({ where: { name: "INSTRUCTOR" } });
+    if (!role) return res.status(500).json({ error: "INSTRUCTOR role not found" });
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { email, passwordHash: await argon2.hash(password) } });
+      await tx.userRole.create({ data: { userId: user.id, roleId: role.id } });
+      const instructor = await tx.instructor.create({
+        data: { userId: user.id, fullName, email, phone: b.phone || null, city: b.city || null, state: b.state || null, bio: b.bio || null, profilePhotoUrl: b.profile_photo_url || null, isActive: true, canLogin: false },
+      });
+      return instructor;
+    });
+    return res.status(201).json({ message: "Instructor application submitted", instructor: result });
+  } catch (err) {
+    console.error("POST /register/instructor error:", err);
+    return res.status(500).json({ error: "Failed to submit instructor registration" });
+  }
+});
+
+router.post("/contact-enquiry", async (req, res) => {
+  const { name, phone, email, message } = req.body || {};
+  if (![name, phone, email, message].every((value) => String(value || "").trim())) return res.status(400).json({ error: "name, phone, email and message are required" });
+  const enquiry = await prisma.contactEnquiry.create({ data: { name: String(name).trim(), phone: String(phone).trim(), email: String(email).trim().toLowerCase(), message: String(message).trim() } });
+  return res.status(201).json({ ok: true, id: enquiry.id });
+});
+
 export default router;

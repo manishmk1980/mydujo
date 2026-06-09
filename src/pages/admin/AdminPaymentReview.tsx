@@ -182,91 +182,180 @@ export default function AdminPaymentReview() {
         ) : null}
 
         {!loading && items.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-[1100px] w-full text-sm">
-              <thead className="bg-[var(--admin-surface-soft)] text-[var(--admin-text)]">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Submission</th>
-                  <th className="px-4 py-3 text-left font-semibold">Fee Request</th>
-                  <th className="px-4 py-3 text-left font-semibold">Student</th>
-                  <th className="px-4 py-3 text-left font-semibold">Method / Ref</th>
-                  <th className="px-4 py-3 text-left font-semibold">Notes</th>
-                  <th className="px-4 py-3 text-left font-semibold">Proof</th>
-                  <th className="px-4 py-3 text-left font-semibold">Submitted At</th>
-                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--admin-border)]">
-                {items.map((s) => (
-                  <tr key={s.id} className="align-top">
-                    <td className="px-4 py-3 text-[var(--admin-text)]">
-                      <div className="font-semibold break-all">{s.id}</div>
-                    </td>
-                    <td className="px-4 py-3 text-[var(--admin-text-muted)]">
-                      <div>{feeById.get(s.fee_request_id)?.title ?? s.fee_request_id}</div>
-                    </td>
-                    <td className="px-4 py-3 text-[var(--admin-text-muted)]">
-                      <div>{studentNameById.get(s.student_id) ?? s.student_id}</div>
-                    </td>
-                    <td className="px-4 py-3 text-[var(--admin-text-muted)]">
-                      <div className="font-semibold">{s.method}</div>
-                      <div className="break-all text-xs text-[var(--admin-text-muted)]">{s.reference ? `Ref: ${s.reference}` : 'No reference'}</div>
-                    </td>
-                    <td className="max-w-[280px] px-4 py-3 text-[var(--admin-text-muted)]">
-                      <div className="break-words whitespace-pre-wrap">{s.notes_from_student || '—'}</div>
-                    </td>
-                    <td className="px-4 py-3 text-[var(--admin-text-muted)]">
-                      {(() => {
-                        const attachmentUrl = resolveAttachmentUrl(s.proof_url, { feeRequestId: s.fee_request_id });
-                        return attachmentUrl ? (
-                          <button
-                            type="button"
-                            className="text-[var(--admin-primary)] font-semibold hover:underline"
-                            onClick={() => setPreviewUrl(attachmentUrl)}
-                          >
-                            View Attachment
-                          </button>
-                        ) : (
-                          <span className="text-xs text-[var(--admin-text-muted)]">No proof</span>
-                        );
-                      })()}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-[var(--admin-text-muted)]">
-                      {s.created_at ? new Date(s.created_at).toLocaleString() : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2 min-w-[240px]">
+          <>
+            {/* Mobile: stacked cards */}
+            <ul className="divide-y divide-[var(--admin-border)] sm:hidden">
+              {items.map((s) => {
+                const attachmentUrl = resolveAttachmentUrl(s.proof_url, { feeRequestId: s.fee_request_id });
+                const feeTitle = feeById.get(s.fee_request_id)?.title ?? s.fee_request_id;
+                const studentName = studentNameById.get(s.student_id) ?? s.student_id;
+                return (
+                  <li key={s.id} className="min-w-0 px-4 py-4">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-[var(--admin-text)]">{studentName}</p>
+                          <p className="break-words text-xs text-[var(--admin-text-muted)]">{feeTitle}</p>
+                        </div>
+                        <p className="shrink-0 whitespace-nowrap text-[10px] uppercase tracking-wide text-[var(--admin-text-muted)]">
+                          {s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}
+                        </p>
+                      </div>
+
+                      <dl className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="min-w-0">
+                          <dt className="text-[10px] font-bold uppercase tracking-wider text-[var(--admin-text-muted)]">Method</dt>
+                          <dd className="break-words font-semibold text-[var(--admin-text)]">{s.method}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-[10px] font-bold uppercase tracking-wider text-[var(--admin-text-muted)]">Reference</dt>
+                          <dd className="break-all text-[var(--admin-text-muted)]">{s.reference || '—'}</dd>
+                        </div>
+                        <div className="col-span-2 min-w-0">
+                          <dt className="text-[10px] font-bold uppercase tracking-wider text-[var(--admin-text-muted)]">Submission</dt>
+                          <dd className="break-all text-[11px] text-[var(--admin-text-muted)]">{s.id}</dd>
+                        </div>
+                        {s.notes_from_student ? (
+                          <div className="col-span-2 min-w-0">
+                            <dt className="text-[10px] font-bold uppercase tracking-wider text-[var(--admin-text-muted)]">Notes from student</dt>
+                            <dd className="whitespace-pre-wrap break-words text-[var(--admin-text-muted)]">{s.notes_from_student}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+
+                      {attachmentUrl ? (
+                        <button
+                          type="button"
+                          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--admin-border)] px-3 py-2 text-sm font-semibold text-[var(--admin-primary)] hover:bg-[var(--admin-surface-soft)]"
+                          onClick={() => setPreviewUrl(attachmentUrl)}
+                        >
+                          View Attachment
+                        </button>
+                      ) : (
+                        <p className="text-xs text-[var(--admin-text-muted)]">No proof attached</p>
+                      )}
+
+                      <div className="flex flex-col gap-2">
                         <button
                           type="button"
                           onClick={() => openConfirmation(s, 'VERIFIED')}
-                          className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700"
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
-                          Validate & Confirm Payment
+                          Validate &amp; Confirm Payment
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openConfirmation(s, 'NEEDS_INFO')}
-                          className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700"
-                        >
-                          <CircleHelp className="h-3.5 w-3.5" />
-                          Need More Payment Info
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openConfirmation(s, 'REJECTED')}
-                          className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700"
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                          Reject Payment
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openConfirmation(s, 'NEEDS_INFO')}
+                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-700"
+                          >
+                            <CircleHelp className="h-3.5 w-3.5" />
+                            Need Info
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openConfirmation(s, 'REJECTED')}
+                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Reject
+                          </button>
+                        </div>
                       </div>
-                    </td>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Desktop: full data table */}
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="min-w-[1100px] w-full text-sm">
+                <thead className="bg-[var(--admin-surface-soft)] text-[var(--admin-text)]">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold">Submission</th>
+                    <th className="px-4 py-3 text-left font-semibold">Fee Request</th>
+                    <th className="px-4 py-3 text-left font-semibold">Student</th>
+                    <th className="px-4 py-3 text-left font-semibold">Method / Ref</th>
+                    <th className="px-4 py-3 text-left font-semibold">Notes</th>
+                    <th className="px-4 py-3 text-left font-semibold">Proof</th>
+                    <th className="px-4 py-3 text-left font-semibold">Submitted At</th>
+                    <th className="px-4 py-3 text-left font-semibold">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[var(--admin-border)]">
+                  {items.map((s) => (
+                    <tr key={s.id} className="align-top">
+                      <td className="px-4 py-3 text-[var(--admin-text)]">
+                        <div className="font-semibold break-all">{s.id}</div>
+                      </td>
+                      <td className="px-4 py-3 text-[var(--admin-text-muted)]">
+                        <div>{feeById.get(s.fee_request_id)?.title ?? s.fee_request_id}</div>
+                      </td>
+                      <td className="px-4 py-3 text-[var(--admin-text-muted)]">
+                        <div>{studentNameById.get(s.student_id) ?? s.student_id}</div>
+                      </td>
+                      <td className="px-4 py-3 text-[var(--admin-text-muted)]">
+                        <div className="font-semibold">{s.method}</div>
+                        <div className="break-all text-xs text-[var(--admin-text-muted)]">{s.reference ? `Ref: ${s.reference}` : 'No reference'}</div>
+                      </td>
+                      <td className="max-w-[280px] px-4 py-3 text-[var(--admin-text-muted)]">
+                        <div className="break-words whitespace-pre-wrap">{s.notes_from_student || '—'}</div>
+                      </td>
+                      <td className="px-4 py-3 text-[var(--admin-text-muted)]">
+                        {(() => {
+                          const attachmentUrl = resolveAttachmentUrl(s.proof_url, { feeRequestId: s.fee_request_id });
+                          return attachmentUrl ? (
+                            <button
+                              type="button"
+                              className="text-[var(--admin-primary)] font-semibold hover:underline"
+                              onClick={() => setPreviewUrl(attachmentUrl)}
+                            >
+                              View Attachment
+                            </button>
+                          ) : (
+                            <span className="text-xs text-[var(--admin-text-muted)]">No proof</span>
+                          );
+                        })()}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-[var(--admin-text-muted)]">
+                        {s.created_at ? new Date(s.created_at).toLocaleString() : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2 min-w-[240px]">
+                          <button
+                            type="button"
+                            onClick={() => openConfirmation(s, 'VERIFIED')}
+                            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Validate &amp; Confirm Payment
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openConfirmation(s, 'NEEDS_INFO')}
+                            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700"
+                          >
+                            <CircleHelp className="h-3.5 w-3.5" />
+                            Need More Payment Info
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openConfirmation(s, 'REJECTED')}
+                            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Reject Payment
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
       </AdminTableCard>
 

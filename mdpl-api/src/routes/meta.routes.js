@@ -1,89 +1,64 @@
 import { Router } from "express";
-import crypto from "crypto";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = Router();
+const requireSuperAdmin = (req, res, next) =>
+  req.auth?.roles?.includes("SUPER_ADMIN") ? next() : res.status(403).json({ error: "not authorized" });
 
-let disciplinesTableEnsured = false;
-async function ensureDisciplinesTable() {
-  if (disciplinesTableEnsured) return;
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS discipline_options (
-      id CHAR(36) NOT NULL PRIMARY KEY,
-      value VARCHAR(64) NOT NULL UNIQUE,
-      label VARCHAR(255) NOT NULL,
-      display_order INT NOT NULL DEFAULT 0,
-      created_at DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  const count = await prisma.$queryRawUnsafe("SELECT COUNT(*) as c FROM discipline_options");
-  if (Array.isArray(count) && count[0]?.c === 0) {
-    const seed = [
-      { value: "karate_shotokan", label: "Karate (Shotokan)", order: 1 },
-      { value: "judo_kodokan", label: "Judo (Kodokan)", order: 2 },
-      { value: "self_defense", label: "Self Defense", order: 3 },
-    ];
-    for (const row of seed) {
-      await prisma.$executeRawUnsafe(
-        "INSERT INTO discipline_options (id, value, label, display_order) VALUES (?, ?, ?, ?)",
-        crypto.randomUUID(),
-        row.value,
-        row.label,
-        row.order
-      );
-    }
-  }
-  disciplinesTableEnsured = true;
-}
-
-function requireSuperAdmin(req, res, next) {
-  const roles = req?.auth?.roles || [];
-  if (!roles.includes("SUPER_ADMIN")) {
-    return res.status(403).json({ error: "not authorized" });
-  }
-  return next();
+async function seedDisciplines() {
+  if (await prisma.disciplineOption.count()) return;
+  await prisma.disciplineOption.createMany({
+    data: [
+      { value: "karate_shotokan", label: "Karate (Shotokan)", displayOrder: 1 },
+      { value: "judo_kodokan", label: "Judo (Kodokan)", displayOrder: 2 },
+      { value: "self_defense", label: "Self Defense", displayOrder: 3 },
+    ],
+    skipDuplicates: true,
+  });
 }
 
 router.get("/disciplines", async (req, res) => {
-  try {
-    await ensureDisciplinesTable();
-    const rows = await prisma.$queryRawUnsafe(
-      "SELECT id, value, label, display_order FROM discipline_options ORDER BY display_order ASC, label ASC"
-    );
-    const disciplines = Array.isArray(rows)
-      ? rows.map((r) => ({ id: r.id, value: r.value, label: r.label }))
-      : [];
-    return res.json({ disciplines });
-  } catch (err) {
-    console.error("GET /meta/disciplines error:", err);
-    return res.status(500).json({ error: "Failed to fetch disciplines" });
-  }
+  await seedDisciplines();
+  const status = String(req.query.status || "").toUpperCase();
+  const where = !status ? { status: "ACTIVE" } : status === "ALL" ? {} : { status };
+  const disciplines = await prisma.disciplineOption.findMany({ where, orderBy: [{ displayOrder: "asc" }, { label: "asc" }] });
+  return res.json({ disciplines });
 });
 
 router.post("/disciplines", requireAuth, requireSuperAdmin, async (req, res) => {
-  try {
-    await ensureDisciplinesTable();
-    const b = req.body || {};
-    const value = String(b.value || "").trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "") || null;
-    const label = String(b.label || "").trim() || null;
-    if (!value || !label) return res.status(400).json({ error: "value and label are required" });
+  const value = String(req.body?.value || "").trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+  const label = String(req.body?.label || "").trim();
+  if (!value || !label) return res.status(400).json({ error: "value and label are required" });
+  const displayOrder = (await prisma.disciplineOption.aggregate({ _max: { displayOrder: true } }))._max.displayOrder || 0;
+  const discipline = await prisma.disciplineOption.create({ data: { value, label, imageUrl: req.body?.image_url || null, displayOrder: displayOrder + 1 } });
+  return res.status(201).json({ discipline });
+});
 
-    const id = crypto.randomUUID();
-    const maxOrder = await prisma.$queryRawUnsafe("SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM discipline_options");
-    const nextOrder = Array.isArray(maxOrder) && maxOrder[0]?.next_order != null ? Number(maxOrder[0].next_order) : 1;
-    await prisma.$executeRawUnsafe(
-      "INSERT INTO discipline_options (id, value, label, display_order) VALUES (?, ?, ?, ?)",
-      id,
-      value,
-      label,
-      nextOrder
-    );
-    return res.status(201).json({ discipline: { id, value, label } });
-  } catch (err) {
-    console.error("POST /meta/disciplines error:", err);
-    return res.status(500).json({ error: "Failed to create discipline" });
-  }
+router.patch("/disciplines/:id", requireAuth, requireSuperAdmin, async (req, res) => {
+  const existing = await prisma.disciplineOption.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Discipline not found" });
+  const status = req.body?.status ? String(req.body.status).toUpperCase() : undefined;
+  if (status && !["ACTIVE", "PAUSED", "ARCHIVED"].includes(status)) return res.status(400).json({ error: "Invalid status" });
+  const discipline = await prisma.disciplineOption.update({
+    where: { id: existing.id },
+    data: {
+      value: req.body?.value,
+      label: req.body?.label,
+      imageUrl: req.body?.image_url ?? req.body?.imageUrl,
+      status,
+      statusNote: req.body?.pause_reason,
+      archivedAt: status === "ARCHIVED" ? new Date() : status ? null : undefined,
+    },
+  });
+  return res.json({ discipline });
+});
+
+router.delete("/disciplines/:id", requireAuth, requireSuperAdmin, async (req, res) => {
+  const existing = await prisma.disciplineOption.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Discipline not found" });
+  const discipline = await prisma.disciplineOption.update({ where: { id: existing.id }, data: { status: "ARCHIVED", archivedAt: new Date() } });
+  return res.json({ discipline });
 });
 
 export default router;

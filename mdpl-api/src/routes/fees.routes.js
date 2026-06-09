@@ -1,144 +1,136 @@
 import { Router } from "express";
-import { randomUUID } from "crypto";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = Router();
+const feeStatuses = new Set(["DRAFT", "ISSUED", "OVERDUE", "PAID", "CANCELLED"]);
+const paymentStatuses = new Set(["SUBMITTED", "NEEDS_INFO", "VERIFIED", "REJECTED", "CANCELLED"]);
+const paymentMethods = new Set(["UPI", "CASH", "BANK_TRANSFER", "CHEQUE", "OTHER"]);
 
-function cleanRows(rows) {
-  return rows.map((r) => ({
-    ...r,
-    due_date: r.due_date ? new Date(r.due_date).toISOString().slice(0, 10) : null,
-    paid_at: r.paid_at ? new Date(r.paid_at).toISOString() : null,
-    issued_at: r.issued_at ? new Date(r.issued_at).toISOString() : null,
-    reviewed_at: r.reviewed_at ? new Date(r.reviewed_at).toISOString() : null,
-    created_at: r.created_at ? new Date(r.created_at).toISOString() : null,
-    updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : null,
-  }));
+const feeDto = (r) => ({
+  id: r.id, student_id: r.studentId, training_center_id: r.trainingCenterId, title: r.title,
+  description: r.description, amount_paise: r.amountPaise, currency: r.currency,
+  due_date: r.dueDate?.toISOString().slice(0, 10), status: r.status, issued_at: r.issuedAt,
+  created_by_user_id: r.createdByUserId, created_at: r.createdAt, updated_at: r.updatedAt,
+  student_full_name: r.student?.fullName, student_email: r.student?.email,
+  student_phone: r.student?.phone, training_center_name: r.trainingCenter?.name,
+});
+const submissionDto = (r) => ({
+  id: r.id, fee_request_id: r.feeRequestId, student_id: r.studentId, submitted_by_user_id: r.submittedByUserId,
+  method: r.method, amount_paise: r.amountPaise, paid_at: r.paidAt, reference: r.reference, proof_url: r.proofUrl,
+  notes_from_student: r.notesFromStudent, status: r.status, reviewed_by_user_id: r.reviewedByUserId,
+  reviewed_at: r.reviewedAt, review_notes: r.reviewNotes, created_at: r.createdAt, updated_at: r.updatedAt,
+  student_full_name: r.student?.fullName, student_email: r.student?.email, fee_title: r.feeRequest?.title,
+  fee_amount_paise: r.feeRequest?.amountPaise, fee_status: r.feeRequest?.status,
+});
+const feeInclude = { student: true, trainingCenter: true };
+const submissionInclude = { student: true, feeRequest: true };
+async function currentStudent(userId) {
+  return prisma.student.findUnique({ where: { userId } });
 }
 
-// Admin: list fee requests
+router.get("/my/requests", requireAuth, async (req, res) => {
+  const student = await currentStudent(req.auth.userId);
+  if (!student) return res.status(404).json({ error: "Student profile not found" });
+  const rows = await prisma.feeRequest.findMany({ where: { studentId: student.id }, include: feeInclude, orderBy: { createdAt: "desc" } });
+  return res.json({ fee_requests: rows.map(feeDto) });
+});
+
+router.get("/my/submissions", requireAuth, async (req, res) => {
+  const student = await currentStudent(req.auth.userId);
+  if (!student) return res.status(404).json({ error: "Student profile not found" });
+  const rows = await prisma.paymentSubmission.findMany({ where: { studentId: student.id }, include: submissionInclude, orderBy: { createdAt: "desc" } });
+  return res.json({ submissions: rows.map(submissionDto) });
+});
+
+router.post("/my/submissions", requireAuth, async (req, res) => {
+  const student = await currentStudent(req.auth.userId);
+  if (!student) return res.status(404).json({ error: "Student profile not found" });
+  const b = req.body || {};
+  if (!b.fee_request_id || !paymentMethods.has(b.method) || !Number(b.amount_paise)) return res.status(400).json({ error: "fee_request_id, valid method and amount_paise are required" });
+  const fee = await prisma.feeRequest.findFirst({ where: { id: b.fee_request_id, studentId: student.id } });
+  if (!fee) return res.status(404).json({ error: "Fee request not found" });
+  const row = await prisma.paymentSubmission.create({
+    data: { feeRequestId: fee.id, studentId: student.id, submittedByUserId: req.auth.userId, method: b.method, amountPaise: Number(b.amount_paise), paidAt: b.paid_at ? new Date(b.paid_at) : null, reference: b.reference || null, proofUrl: b.proof_url || null, notesFromStudent: b.notes_from_student || null },
+    include: submissionInclude,
+  });
+  return res.status(201).json({ submission: submissionDto(row) });
+});
+
+router.patch("/my/submissions/:id", requireAuth, async (req, res) => {
+  const student = await currentStudent(req.auth.userId);
+  const existing = student && await prisma.paymentSubmission.findFirst({ where: { id: req.params.id, studentId: student.id } });
+  if (!existing) return res.status(404).json({ error: "Submission not found" });
+  if (!["SUBMITTED", "NEEDS_INFO"].includes(existing.status)) return res.status(409).json({ error: "Submission can no longer be edited" });
+  const b = req.body || {};
+  const row = await prisma.paymentSubmission.update({
+    where: { id: existing.id },
+    data: { method: b.method, paidAt: b.paid_at === undefined ? undefined : b.paid_at ? new Date(b.paid_at) : null, reference: b.reference, proofUrl: b.proof_url, notesFromStudent: b.notes_from_student },
+    include: submissionInclude,
+  });
+  return res.json({ submission: submissionDto(row) });
+});
+
 router.get("/requests", requireAuth, async (req, res) => {
-  try {
-    const rows = await prisma.$queryRawUnsafe(`
-      SELECT 
-        fr.*,
-        s.full_name AS student_full_name,
-        s.email AS student_email,
-        s.phone AS student_phone,
-        tc.name AS training_center_name
-      FROM fee_requests fr
-      LEFT JOIN students s ON s.id = fr.student_id
-      LEFT JOIN training_centers tc ON tc.id = fr.training_center_id
-      ORDER BY fr.created_at DESC
-    `);
-
-    const requests = cleanRows(rows);
-    res.json({ requests, fee_requests: requests });
-  } catch (err) {
-    console.error("GET /fees/requests error:", err);
-    res.status(500).json({ error: "server error" });
-  }
+  const where = {};
+  if (req.query.status) where.status = String(req.query.status);
+  if (req.query.student_id) where.studentId = String(req.query.student_id);
+  if (req.query.training_center_id) where.trainingCenterId = String(req.query.training_center_id);
+  const rows = await prisma.feeRequest.findMany({ where, include: feeInclude, orderBy: { createdAt: "desc" } });
+  const requests = rows.map(feeDto);
+  return res.json({ requests, fee_requests: requests });
 });
 
-// Admin: create fee request
 router.post("/requests", requireAuth, async (req, res) => {
-  try {
-    const {
-      student_id,
-      training_center_id,
-      title,
-      description,
-      amount_paise,
-      due_date,
-      status = "ISSUED",
-    } = req.body;
-
-    if (!student_id || !title || !amount_paise || !due_date) {
-      return res.status(400).json({ error: "student_id, title, amount_paise and due_date are required" });
-    }
-
-    const id = randomUUID();
-    const issuedAt = status === "DRAFT" ? null : new Date();
-
-    await prisma.$executeRawUnsafe(
-      `
-      INSERT INTO fee_requests
-      (id, student_id, training_center_id, title, description, amount_paise, currency, due_date, status, issued_at, created_by_user_id, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'INR', ?, ?, ?, ?, NOW())
-      `,
-      id,
-      student_id,
-      training_center_id || null,
-      title,
-      description || null,
-      Number(amount_paise),
-      due_date,
-      status,
-      issuedAt,
-      req.auth.userId
-    );
-
-    const rows = await prisma.$queryRawUnsafe(`SELECT * FROM fee_requests WHERE id = ?`, id);
-    res.status(201).json({ request: cleanRows(rows)[0], fee_request: cleanRows(rows)[0] });
-  } catch (err) {
-    console.error("POST /fees/requests error:", err);
-    res.status(500).json({ error: "server error" });
-  }
+  const b = req.body || {};
+  if (!b.student_id || !b.title || !Number(b.amount_paise) || !b.due_date) return res.status(400).json({ error: "student_id, title, amount_paise and due_date are required" });
+  const status = String(b.status || "ISSUED").toUpperCase();
+  if (!feeStatuses.has(status)) return res.status(400).json({ error: "Invalid status" });
+  const row = await prisma.feeRequest.create({ data: { studentId: b.student_id, trainingCenterId: b.training_center_id || null, title: b.title, description: b.description || null, amountPaise: Number(b.amount_paise), dueDate: new Date(b.due_date), status, issuedAt: status === "DRAFT" ? null : new Date(), createdByUserId: req.auth.userId }, include: feeInclude });
+  return res.status(201).json({ request: feeDto(row), fee_request: feeDto(row) });
 });
 
-// Admin: list payment submissions
+router.post("/requests/bulk", requireAuth, async (req, res) => {
+  const b = req.body || {};
+  if (!b.title || !Number(b.amount_paise) || !b.due_date) return res.status(400).json({ error: "title, amount_paise and due_date are required" });
+  const students = await prisma.student.findMany({ where: { status: "approved", trainingCenterId: b.training_center_id || undefined } });
+  const created = [];
+  for (const student of students) {
+    created.push(await prisma.feeRequest.create({ data: { studentId: student.id, trainingCenterId: student.trainingCenterId, title: b.title, description: b.description || null, amountPaise: Number(b.amount_paise), dueDate: new Date(b.due_date), status: b.issue_now ? "ISSUED" : "DRAFT", issuedAt: b.issue_now ? new Date() : null, createdByUserId: req.auth.userId }, include: feeInclude }));
+  }
+  return res.status(201).json({ count: created.length, fee_requests: created.map(feeDto) });
+});
+
+router.patch("/requests/:id", requireAuth, async (req, res) => {
+  const existing = await prisma.feeRequest.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Fee request not found" });
+  const b = req.body || {};
+  const status = b.status ? String(b.status).toUpperCase() : undefined;
+  if (status && !feeStatuses.has(status)) return res.status(400).json({ error: "Invalid status" });
+  const row = await prisma.feeRequest.update({ where: { id: existing.id }, data: { title: b.title, amountPaise: b.amount_paise === undefined ? undefined : Number(b.amount_paise), dueDate: b.due_date ? new Date(b.due_date) : undefined, status }, include: feeInclude });
+  return res.json({ fee_request: feeDto(row) });
+});
+
+router.delete("/requests/:id", requireAuth, async (req, res) => {
+  const existing = await prisma.feeRequest.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Fee request not found" });
+  await prisma.feeRequest.delete({ where: { id: existing.id } });
+  return res.json({ ok: true });
+});
+
 router.get("/submissions", requireAuth, async (req, res) => {
-  try {
-    const rows = await prisma.$queryRawUnsafe(`
-      SELECT
-        ps.*,
-        s.full_name AS student_full_name,
-        s.email AS student_email,
-        fr.title AS fee_title,
-        fr.amount_paise AS fee_amount_paise,
-        fr.status AS fee_status
-      FROM payment_submissions ps
-      LEFT JOIN students s ON s.id = ps.student_id
-      LEFT JOIN fee_requests fr ON fr.id = ps.fee_request_id
-      ORDER BY ps.created_at DESC
-    `);
-
-    const submissions = cleanRows(rows);
-    res.json({ submissions });
-  } catch (err) {
-    console.error("GET /fees/submissions error:", err);
-    res.status(500).json({ error: "server error" });
-  }
+  const rows = await prisma.paymentSubmission.findMany({ include: submissionInclude, orderBy: { createdAt: "desc" } });
+  return res.json({ submissions: rows.map(submissionDto) });
 });
 
-// Admin: review payment submission
 router.patch("/submissions/:id/review", requireAuth, async (req, res) => {
-  try {
-    const { status, review_notes } = req.body;
-
-    if (!status) {
-      return res.status(400).json({ error: "status is required" });
-    }
-
-    await prisma.$executeRawUnsafe(
-      `
-      UPDATE payment_submissions
-      SET status = ?, review_notes = ?, reviewed_by_user_id = ?, reviewed_at = NOW(), updated_at = NOW()
-      WHERE id = ?
-      `,
-      status,
-      review_notes || null,
-      req.auth.userId,
-      req.params.id
-    );
-
-    const rows = await prisma.$queryRawUnsafe(`SELECT * FROM payment_submissions WHERE id = ?`, req.params.id);
-    res.json({ submission: cleanRows(rows)[0] });
-  } catch (err) {
-    console.error("PATCH /fees/submissions/:id/review error:", err);
-    res.status(500).json({ error: "server error" });
-  }
+  const status = String(req.body?.status || "").toUpperCase();
+  if (!paymentStatuses.has(status)) return res.status(400).json({ error: "valid status is required" });
+  const existing = await prisma.paymentSubmission.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Submission not found" });
+  const row = await prisma.paymentSubmission.update({ where: { id: existing.id }, data: { status, reviewNotes: req.body?.review_notes || null, reviewedByUserId: req.auth.userId, reviewedAt: new Date() }, include: submissionInclude });
+  if (status === "VERIFIED") await prisma.feeRequest.update({ where: { id: row.feeRequestId }, data: { status: "PAID" } });
+  return res.json({ submission: submissionDto(row) });
 });
 
 export default router;

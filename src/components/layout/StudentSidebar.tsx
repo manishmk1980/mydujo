@@ -15,10 +15,17 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useSidebar } from '../../context/SidebarContext';
 import { CollapsibleSidebarShell } from './CollapsibleSidebarShell';
 import { SidebarNavItem } from './SidebarNavItem';
-import { AspectRatio } from '../ui/aspect-ratio';
 import { feesService, countActionableStudentFeeRequests } from '../../services/feesService';
 import mdplLogo from '@/assets/logo/mdpl-hr-logo.svg';
 import logoEmblem from '@/assets/logo/logo-emblem.svg';
+
+function getInitials(name?: string | null) {
+  if (!name) return 'S';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'S';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return ((parts[0]?.[0] ?? '') + (parts[parts.length - 1]?.[0] ?? '')).toUpperCase();
+}
 
 export function StudentSidebar() {
   const { user, student, logout } = useAuth();
@@ -52,7 +59,7 @@ export function StudentSidebar() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate('/student/login');
   };
 
   const navItems = [
@@ -94,14 +101,11 @@ export function StudentSidebar() {
         {!isCollapsed ? (
           <div className="bg-slate-50 rounded-xl p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="size-10 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                <AspectRatio ratio={1 / 1}>
-                  <img
-                    src="https://ui-avatars.com/api/?name=Student&background=94a3b8&color=fff"
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                </AspectRatio>
+              <div
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-bold text-white"
+                aria-hidden
+              >
+                {getInitials(student?.full_name || user?.name)}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-slate-900 truncate">

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import argon2 from "argon2";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 
@@ -364,6 +365,16 @@ router.get("/:id/assignments/students", requireAuth, requireSuperAdmin, async (r
     console.error("Fetch assignments error:", err);
     return res.status(500).json({ error: "Failed to fetch assignments" });
   }
+});
+
+router.delete("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
+  const existing = await prisma.instructor.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: "Instructor not found" });
+  await prisma.$transaction(async (tx) => {
+    await tx.instructor.delete({ where: { id: existing.id } });
+    if (existing.userId) await tx.user.delete({ where: { id: existing.userId } });
+  });
+  return res.json({ ok: true });
 });
 
 export default router;

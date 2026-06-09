@@ -185,26 +185,26 @@ interface DisciplineFormProps {
 function DisciplineForm({ formValue, formLabel, onValueChange, onLabelChange, imagePicker, canSubmit, submitting, onSubmit, onCancel, title = 'New Discipline' }: DisciplineFormProps) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4 sm:p-6">
-      <h3 className="font-bold text-slate-800">{title}</h3>
+      <h3 className="break-words font-bold text-slate-800">{title}</h3>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Value (slug) *</label>
           <input className={inputCls} placeholder="e.g. karate_shotokan" value={formValue} onChange={(e) => onValueChange(e.target.value)} required />
         </div>
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Label (display name) *</label>
           <input className={inputCls} placeholder="e.g. Karate (Shotokan)" value={formLabel} onChange={(e) => onLabelChange(e.target.value)} required />
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
+        <div className="min-w-0 space-y-1.5 sm:col-span-2">
           <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Discipline picture / icon</label>
           {imagePicker}
         </div>
       </div>
-      <div className="flex gap-3">
-        <button type="button" disabled={!canSubmit || submitting} onClick={onSubmit} className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] disabled:opacity-50">
+      <div className="flex flex-wrap gap-3">
+        <button type="button" disabled={!canSubmit || submitting} onClick={onSubmit} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] disabled:opacity-50 sm:flex-none">
           {submitting && <Loader2 className="size-4 animate-spin" />} Save
         </button>
-        <button type="button" onClick={onCancel} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button type="button" onClick={onCancel} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex-none">Cancel</button>
       </div>
     </div>
   );
@@ -556,19 +556,21 @@ export default function AdminDisciplines() {
               const status = resolveStatus(d);
               const imgUrl = d.imageUrl || d.image_url;
               return (
-                <div key={d.id ?? d.value} className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50/70">
-                  {imgUrl ? (
-                    <img src={imgUrl} alt={d.label} className="size-12 shrink-0 rounded-2xl border border-slate-200 object-cover" />
-                  ) : (
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--admin-primary-soft)]">
-                      <Sword className="size-6 text-[var(--admin-primary)]" />
+                <div key={d.id ?? d.value} className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-slate-50/70 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex min-w-0 items-start gap-3 sm:flex-1 sm:items-center sm:gap-4">
+                    {imgUrl ? (
+                      <img src={imgUrl} alt={d.label} className="size-12 shrink-0 rounded-2xl border border-slate-200 object-cover" />
+                    ) : (
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--admin-primary-soft)]">
+                        <Sword className="size-6 text-[var(--admin-primary)]" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-bold text-slate-900">{d.label}</p>
+                      <p className="truncate text-xs text-slate-500">{d.value}</p>
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold text-slate-900">{d.label}</p>
-                    <p className="truncate text-xs text-slate-500">{d.value}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                     {status === 'PAUSED' && <AdminBadge variant="warning" size="sm">Paused</AdminBadge>}
                     {status === 'ARCHIVED' && <AdminBadge variant="neutral" size="sm">Archived</AdminBadge>}
                     {status === 'ACTIVE' && <AdminBadge variant="success" size="sm">Active</AdminBadge>}

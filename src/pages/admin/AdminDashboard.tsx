@@ -5,7 +5,6 @@ import {
   TrendingUp,
   Users,
   MapPin,
-  GraduationCap,
   UserCheck,
   UserPlus,
   Radio,
@@ -17,6 +16,12 @@ import {
 } from 'lucide-react';
 import { studentService, type StudentDashboardStats } from '../../services/studentService';
 import { feesService, type FeeRequestDTO, type PaymentSubmissionDTO } from '../../services/feesService';
+import { trainingCenterService } from '../../services/trainingCenterService';
+
+function formatINRFromPaise(paise: number) {
+  const rupees = paise / 100;
+  return rupees.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+}
 import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminStatCard } from '../../components/admin/dashboard/AdminStatCard';
@@ -38,6 +43,8 @@ export default function AdminDashboard() {
   const [submissions, setSubmissions] = React.useState<PaymentSubmissionDTO[]>([]);
   const [feesLoading, setFeesLoading] = React.useState(true);
   const [feesError, setFeesError] = React.useState<string | null>(null);
+  const [centersCount, setCentersCount] = React.useState<number | null>(null);
+  const [centersLoading, setCentersLoading] = React.useState(true);
 
   React.useEffect(() => {
     let alive = true;
@@ -88,36 +95,25 @@ export default function AdminDashboard() {
     };
   }, []);
 
-const stats = [
-  {
-    label: 'Total Revenue',
-    value: '₹0',
-    icon: TrendingUp,
-    color: 'text-rose-600',
-    bg: 'bg-rose-100',
-  },
-  {
-    label: 'Active Students',
-    value: '0',
-    icon: Users,
-    color: 'text-sky-600',
-    bg: 'bg-sky-100',
-  },
-  {
-    label: 'Training Centers',
-    value: '0',
-    icon: Building2,
-    color: 'text-amber-600',
-    bg: 'bg-amber-100',
-  },
-  {
-    label: 'Top Instructor',
-    value: 'Not available',
-    icon: GraduationCap,
-    color: 'text-rose-600',
-    bg: 'bg-rose-100',
-  },
-];
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setCentersLoading(true);
+        const data = await trainingCenterService.getAllTrainingCenters();
+        if (!alive) return;
+        setCentersCount(Array.isArray(data) ? data.length : 0);
+      } catch {
+        if (!alive) return;
+        setCentersCount(null);
+      } finally {
+        if (alive) setCentersLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const totalFeeRequests = feeRequests.length;
   const pendingPaymentCount = feeRequests.filter((r) => {
@@ -131,12 +127,21 @@ const stats = [
   const registered = studentStats?.registered ?? 0;
   const approved = studentStats?.approved ?? 0;
   const activePortal = studentStats?.active_portal ?? 0;
-  const trainingCentersValue = stats.find((s) => s.label === 'Training Centers')?.value ?? '—';
+  const trainingCentersValue: number | string =
+    centersLoading ? '—' : centersCount ?? '—';
 
-  const centersNum =
-    typeof trainingCentersValue === 'number'
-      ? trainingCentersValue
-      : parseInt(String(trainingCentersValue).replace(/[^\d]/g, ''), 10) || 0;
+  const centersNum = typeof trainingCentersValue === 'number' ? trainingCentersValue : 0;
+
+  const verifiedRevenuePaise = submissions.reduce((total, submission) => {
+    if (submission.status !== 'VERIFIED') return total;
+    const fee = feeRequests.find((r) => r.id === submission.fee_request_id);
+    return total + (fee?.amount_paise ?? 0);
+  }, 0);
+  const verifiedRevenueLabel = feesLoading
+    ? '—'
+    : verifiedRevenuePaise > 0
+      ? formatINRFromPaise(verifiedRevenuePaise)
+      : '₹0';
 
   const studentChartData = [
     { name: 'Registered', value: registered, fill: '#ea580c' },
@@ -194,9 +199,12 @@ const stats = [
 
   const monthlyRows: MonthlyInsightRow[] = [
     {
-      label: 'Total Revenue',
-      value: '₹0',
-      detail: 'No verified payment revenue recorded yet',
+      label: 'Verified Revenue',
+      value: verifiedRevenueLabel,
+      detail:
+        verifiedRevenuePaise > 0
+          ? `${acceptedPaymentsCount} verified payment${acceptedPaymentsCount === 1 ? '' : 's'} recorded`
+          : 'No verified payment revenue recorded yet',
       icon: TrendingUp,
       color: 'text-rose-600',
       bg: 'bg-rose-100',

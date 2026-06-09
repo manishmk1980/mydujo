@@ -219,13 +219,13 @@ export default function AdminProfile() {
                 }
             />
 
-            <div className="bg-white border rounded-3xl px-6 py-8 shadow-sm border-slate-200 flex flex-col items-center text-center relative overflow-hidden">
+            <div className="relative flex flex-col items-center overflow-hidden rounded-3xl border border-slate-200 bg-white px-4 py-6 text-center shadow-sm sm:px-6 sm:py-8">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-32 -mt-32 opacity-20"></div>
-                <div className="size-32 rounded-[2.5rem] bg-amber-500 flex items-center justify-center p-6 mb-8 ring-8 ring-amber-50 relative z-10">
-                    <User className="size-16 text-white" />
+                <div className="relative z-10 mb-8 flex size-24 items-center justify-center rounded-[2rem] bg-amber-500 p-5 ring-8 ring-amber-50 sm:size-32 sm:rounded-[2.5rem] sm:p-6">
+                    <User className="size-12 text-white sm:size-16" />
                 </div>
 
-                <h2 className="text-3xl font-black text-slate-900 leading-none relative z-10">{adminUser?.full_name || adminUser?.email?.split('@')[0] || 'Super Admin'}</h2>
+                <h2 className="relative z-10 break-words text-2xl font-black leading-tight text-slate-900 sm:text-3xl sm:leading-none">{adminUser?.full_name || adminUser?.email?.split('@')[0] || 'Super Admin'}</h2>
                 <div className="mt-4 flex flex-wrap justify-center gap-3 relative z-10">
                     <span className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest leading-none flex items-center gap-2 border border-slate-200">
                         <Shield className="size-3.5" /> {roleLabel} Role
@@ -235,23 +235,23 @@ export default function AdminProfile() {
                     </span>
                 </div>
 
-                <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl relative z-10 text-left">
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
-                        <Mail className="size-6 text-slate-400" />
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Primary Email</p>
-                            <p className="text-sm font-bold text-slate-900 mt-2">{adminUser?.email}</p>
+                <div className="relative z-10 mt-10 grid w-full max-w-4xl grid-cols-1 gap-4 text-left md:grid-cols-3">
+                    <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-6">
+                        <Mail className="size-6 shrink-0 text-slate-400" />
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase leading-none tracking-widest text-slate-400">Primary Email</p>
+                            <p className="mt-2 truncate text-sm font-bold text-slate-900">{adminUser?.email}</p>
                         </div>
                     </div>
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
-                        <Award className="size-6 text-slate-400" />
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Personnel ID</p>
-                            <p className="text-sm font-bold text-slate-900 mt-2 truncate max-w-[200px]">{adminUser?.id}</p>
+                    <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-6">
+                        <Award className="size-6 shrink-0 text-slate-400" />
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase leading-none tracking-widest text-slate-400">Personnel ID</p>
+                            <p className="mt-2 truncate text-sm font-bold text-slate-900">{adminUser?.id}</p>
                         </div>
                     </div>
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Display Name</p>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-6">
+                        <p className="text-[10px] font-black uppercase leading-none tracking-widest text-slate-400">Display Name</p>
                         <input
                             value={displayNameInput}
                             onChange={(e) => setDisplayNameInput(e.target.value)}
@@ -287,17 +287,18 @@ export default function AdminProfile() {
                         aria-labelledby="admin-security-title"
                         onClick={(ev) => ev.stopPropagation()}
                     >
-                        <div className="flex items-start justify-between border-b border-slate-200 p-6">
-                            <div>
-                                <h3 id="admin-security-title" className="text-xl font-black text-slate-900">
+                        <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-5 sm:p-6">
+                            <div className="min-w-0">
+                                <h3 id="admin-security-title" className="break-words text-lg font-black text-slate-900 sm:text-xl">
                                     Super Admin Security
                                 </h3>
-                                <p className="mt-1 text-sm text-slate-500">Update super admin email/password and force re-login.</p>
+                                <p className="mt-1 break-words text-sm text-slate-500">Update super admin email/password and force re-login.</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => void requestCloseSecurityPanel()}
-                                className="rounded-xl p-2 text-slate-500 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
+                                aria-label="Close"
+                                className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
                                 disabled={submitting}
                             >
                                 <X className="size-5" />
@@ -400,19 +401,19 @@ export default function AdminProfile() {
                             {securityLoading && <p className="text-sm text-slate-500">Loading security details...</p>}
                             {securityError && <p className="text-sm text-red-600 font-medium">{securityError}</p>}
 
-                            <div className="sticky bottom-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-t border-slate-200 -mx-6 px-6 py-4 flex items-center justify-end gap-3">
+                            <div className="sticky bottom-0 -mx-6 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
                                 <button
                                     type="button"
                                     onClick={() => void requestCloseSecurityPanel()}
                                     disabled={submitting}
-                                    className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-bold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900/15 disabled:opacity-60"
+                                    className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900/15 disabled:opacity-60 sm:w-auto"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting || securityLoading}
-                                    className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/25 disabled:opacity-60"
+                                    className="inline-flex min-h-11 w-full items-center justify-center break-words rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/25 disabled:opacity-60 sm:w-auto"
                                 >
                                     {submitting ? 'Updating...' : 'Update Super Admin Security'}
                                 </button>

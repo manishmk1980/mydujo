@@ -120,7 +120,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
                 <div className="relative size-24 shrink-0">
                   <svg className="size-full -rotate-90" viewBox="0 0 36 36">
                     <circle cx="18" cy="18" r="16" fill="none" className="stroke-slate-100" strokeWidth="3" />
@@ -139,7 +139,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-3">
+                <div className="min-w-0 w-full flex-1 space-y-3">
                   <div>
                     <div className="flex justify-between text-[10px] font-bold mb-1">
                       <span className="text-slate-500 uppercase">Attendance</span>

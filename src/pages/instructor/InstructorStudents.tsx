@@ -112,7 +112,7 @@ export default function InstructorStudents() {
                                     <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                         <th className="px-6 py-4">Student</th>
                                         <th className="px-6 py-4">Rank / Belt</th>
-                                        <th className="px-6 py-4">Attendance Rate</th>
+                                        <th className="px-6 py-4">Syllabus Progress</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
@@ -142,12 +142,21 @@ export default function InstructorStudents() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: '85%' }} />
-                                                    </div>
-                                                    <span className="text-[10px] font-bold text-slate-600 tracking-tighter">85%</span>
-                                                </div>
+                                                {(() => {
+                                                    const pct = student.gradingProgress?.syllabusCompletionPercent;
+                                                    if (typeof pct !== 'number') {
+                                                        return <span className="text-[10px] font-bold text-slate-400 tracking-tighter">No data</span>;
+                                                    }
+                                                    const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+                                                    return (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${clamped}%` }} />
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-slate-600 tracking-tighter">{clamped}%</span>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className={cn(

@@ -23,7 +23,7 @@ export function InstructorSidebar() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate('/instructor/login');
   };
 
   const displayName = instructor?.full_name || user?.name || user?.email || 'Instructor';

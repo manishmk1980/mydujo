@@ -15,6 +15,8 @@ import {
 import { PageContainer } from '../../components/layout/PageContainer';
 import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
+import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
+import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
 import { useAdminConfirm } from '../../components/admin/ui/AdminConfirmProvider';
 import { AttachmentPreviewModal } from '../../components/ui/AttachmentPreviewModal';
 import { feesService, type FeeRequestDTO, type FeeRequestStatus, type PaymentSubmissionDTO } from '../../services/feesService';
@@ -398,14 +400,14 @@ export default function AdminFeeRequests() {
 
       {error ? <AdminErrorState message={error} className="mb-4" /> : null}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between gap-3">
-        <div>
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <div className="text-sm font-bold text-slate-900">Create fee request</div>
           <div className="text-xs text-slate-500">Generate requests for one or many students.</div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           {highlightedStudentName ? (
-            <div className="inline-flex max-w-[280px] items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 truncate">
+            <div className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 sm:max-w-[280px]">
               <UserPlus className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{highlightedStudentName}</span>
             </div>
@@ -422,17 +424,17 @@ export default function AdminFeeRequests() {
               setDueDay(d.day);
               setIsCreateOpen(true);
             }}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--admin-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-primary-hover)]"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--admin-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--admin-primary-hover)] sm:w-auto"
           >
-            <Plus className="h-4 w-4" />
-            Create Fee Request
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="truncate">Create Fee Request</span>
           </button>
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="text-sm font-bold text-slate-900">Recent requests</div>
+      <div className="mt-4 min-w-0 rounded-2xl border border-slate-200 bg-white">
+        <div className="flex flex-col gap-2 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 text-sm font-bold text-slate-900">Recent requests</div>
           <button
             type="button"
             onClick={async () => {
@@ -445,163 +447,260 @@ export default function AdminFeeRequests() {
                 setLoading(false);
               }
             }}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--admin-primary)] hover:underline"
+            className="inline-flex shrink-0 items-center gap-1 self-start text-sm font-semibold text-[var(--admin-primary)] hover:underline sm:self-auto"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4 shrink-0" />
             Refresh
           </button>
         </div>
         <div className="overflow-x-auto">
-          {loading ? <div className="p-4 text-sm text-slate-600">Loading…</div> : null}
+          {loading ? <AdminLoadingState label="Loading fee requests…" className="py-10" /> : null}
           {!loading && items.length === 0 ? (
-            <div className="p-4 text-sm text-slate-600">
-              {studentId.trim() ? 'No fee requests yet for this student.' : 'No fee requests found.'}
-            </div>
+            <AdminEmptyState
+              title={studentId.trim() ? 'No fee requests for this student' : 'No fee requests yet'}
+              description={
+                studentId.trim()
+                  ? 'Create a fee request to start billing this student.'
+                  : 'Generated fee requests will appear here once you raise them.'
+              }
+            />
           ) : null}
-          {!loading && items.length > 0 ? (
-            <table className="min-w-[1150px] w-full text-sm">
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Student Name</th>
-                  <th className="px-4 py-3 text-left font-semibold">Email</th>
-                  <th className="px-4 py-3 text-left font-semibold">Fee Request for</th>
-                  <th className="px-4 py-3 text-left font-semibold">Due Date</th>
-                  <th className="px-4 py-3 text-left font-semibold">Fee Status</th>
-                  <th className="px-4 py-3 text-left font-semibold">Payment Status</th>
-                  <th className="px-4 py-3 text-left font-semibold">Requested by</th>
-                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((r) => (
-                  <React.Fragment key={r.id}>
-                    <tr className="align-top">
-                      {(() => {
+          {!loading && items.length > 0 ? (() => {
+            const renderEditForm = (r: FeeRequestDTO) => (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 grid gap-2 sm:grid-cols-5">
+                <select value={editMonthIndex} onChange={(ev) => setEditMonthIndex(Number(ev.target.value))} className="min-h-11 w-full rounded border border-slate-200 px-2 py-1 text-sm">
+                  {MONTH_OPTIONS.map((m, idx) => (
+                    <option key={`edit-${m}`} value={idx}>{m}</option>
+                  ))}
+                </select>
+                <select value={editYear} onChange={(ev) => setEditYear(Number(ev.target.value))} className="min-h-11 w-full rounded border border-slate-200 px-2 py-1 text-sm">
+                  {yearOptions.map((y) => (
+                    <option key={`edit-year-${y}`} value={y}>{y}</option>
+                  ))}
+                </select>
+                <select value={editDueDay} onChange={(ev) => setEditDueDay(Number(ev.target.value))} className="min-h-11 w-full rounded border border-slate-200 px-2 py-1 text-sm">
+                  {editDayOptions.map((d) => (
+                    <option key={`edit-day-${d}`} value={d}>{d}</option>
+                  ))}
+                </select>
+                <input type="number" min={1} value={editAmountRupees} onChange={(ev) => setEditAmountRupees(Number(ev.target.value))} className="min-h-11 w-full rounded border border-slate-200 px-2 py-1 text-sm" placeholder="Amount ₹" />
+                <select value={editStatus} onChange={(ev) => setEditStatus(ev.target.value as FeeRequestStatus)} className="min-h-11 w-full rounded border border-slate-200 px-2 py-1 text-sm">
+                  {['DRAFT', 'ISSUED', 'PAID', 'CANCELLED'].map((s) => (
+                    <option key={`status-${s}`} value={s}>{s}</option>
+                  ))}
+                </select>
+                <div className="break-words text-xs text-slate-600 sm:col-span-5">Title will be: {editFeeTitle} | Due: {formatDateForLabel(dueDateForEdit)}</div>
+                <div className="flex flex-wrap gap-2 sm:col-span-5">
+                  <button
+                    type="button"
+                    className="inline-flex min-h-11 items-center justify-center rounded bg-[var(--admin-primary)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--admin-primary-hover)]"
+                    onClick={async () => {
+                      try {
+                        setError(null);
+                        await feesService.updateFeeRequest(r.id, {
+                          title: editFeeTitle,
+                          dueDate: dueDateForEdit,
+                          amountPaise: Math.round(editAmountRupees * 100),
+                          status: editStatus,
+                        });
+                        setEditingId(null);
+                        await loadFeeRequests(studentId);
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : 'Failed to update fee request');
+                      }
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button type="button" className="inline-flex min-h-11 items-center justify-center rounded border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-white" onClick={() => setEditingId(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            );
+
+            const beginEdit = (r: FeeRequestDTO) => {
+              const parts = parseDateParts(r.due_date);
+              setEditingId(r.id);
+              setEditMonthIndex(parts.monthIndex);
+              setEditYear(parts.year);
+              setEditDueDay(parts.day);
+              setEditAmountRupees(Math.round(r.amount_paise / 100));
+              setEditStatus(r.status);
+            };
+
+            return (
+              <>
+                {/* Mobile: stacked cards */}
+                <ul className="divide-y divide-slate-100 sm:hidden">
+                  {items.map((r) => {
+                    const latestSubmission = submissionsByFeeId[r.id];
+                    const feeStatus = r.computed_status ?? r.status;
+                    const paymentStatus = latestSubmission?.status ?? (feeStatus === 'PAID' ? 'VERIFIED' : 'NO_SUBMISSION');
+                    const isEditing = editingId === r.id;
+                    return (
+                      <li key={r.id} className="min-w-0 px-4 py-4">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-slate-900">{r.student_name ?? 'Unknown'}</p>
+                              <p className="truncate text-xs text-slate-500">{r.student_email ?? 'N/A'}</p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-sm font-bold text-slate-900">{formatINRFromPaise(r.amount_paise)}</p>
+                              <p className="text-[10px] uppercase tracking-wide text-slate-400">Amount</p>
+                            </div>
+                          </div>
+
+                          <dl className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="min-w-0">
+                              <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">For</dt>
+                              <dd className="break-words text-slate-700">{r.title || formatFeeRequestPeriod(r.due_date)}</dd>
+                            </div>
+                            <div className="min-w-0">
+                              <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Due</dt>
+                              <dd className="break-words text-slate-700">{formatDateWithOrdinal(r.due_date)}</dd>
+                            </div>
+                            <div className="min-w-0 col-span-2">
+                              <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Requested by</dt>
+                              <dd className="break-words text-slate-700">{formatRequestedBy(r.created_by_display_name, r.created_by_email)}</dd>
+                            </div>
+                          </dl>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${getFeeStatusBadgeClass(feeStatus)}`}>
+                              {toStatusLabel(feeStatus)}
+                            </span>
+                            <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${getPaymentStatusBadgeClass(paymentStatus)}`}>
+                              {toStatusLabel(paymentStatus)}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                              onClick={() => setDetailsItem(r)}
+                            >
+                              <Eye className="h-4 w-4" /> View
+                            </button>
+                            {feeStatus !== 'PAID' ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                                  onClick={() => (isEditing ? setEditingId(null) : beginEdit(r))}
+                                >
+                                  <Pencil className="h-4 w-4" /> {isEditing ? 'Close' : 'Edit'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                  onClick={() => void confirmDeleteFeeRequest(r)}
+                                >
+                                  <Trash2 className="h-4 w-4" /> Delete
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
+
+                          {isEditing ? <div className="mt-1">{renderEditForm(r)}</div> : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {/* Desktop: full data table */}
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="min-w-[1150px] w-full text-sm">
+                    <thead className="bg-slate-50 text-slate-700">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold">Student Name</th>
+                        <th className="px-4 py-3 text-left font-semibold">Email</th>
+                        <th className="px-4 py-3 text-left font-semibold">Fee Request for</th>
+                        <th className="px-4 py-3 text-left font-semibold">Due Date</th>
+                        <th className="px-4 py-3 text-left font-semibold">Fee Status</th>
+                        <th className="px-4 py-3 text-left font-semibold">Payment Status</th>
+                        <th className="px-4 py-3 text-left font-semibold">Requested by</th>
+                        <th className="px-4 py-3 text-left font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {items.map((r) => {
                         const latestSubmission = submissionsByFeeId[r.id];
                         const feeStatus = r.computed_status ?? r.status;
                         const paymentStatus = latestSubmission?.status ?? (feeStatus === 'PAID' ? 'VERIFIED' : 'NO_SUBMISSION');
                         return (
-                          <>
-                      <td className="px-4 py-3 font-medium text-slate-900">{r.student_name ?? 'Unknown'}</td>
-                      <td className="px-4 py-3 text-slate-600">{r.student_email ?? 'N/A'}</td>
-                      <td className="px-4 py-3 text-slate-700">{r.title || formatFeeRequestPeriod(r.due_date)}</td>
-                      <td className="px-4 py-3 text-slate-700">{formatDateWithOrdinal(r.due_date)}</td>
-                      <td className="px-4 py-3 text-slate-700">
-                        <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getFeeStatusBadgeClass(feeStatus)}`}>
-                          {toStatusLabel(feeStatus)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">
-                        <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getPaymentStatusBadgeClass(paymentStatus)}`}>
-                          {toStatusLabel(paymentStatus)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{formatRequestedBy(r.created_by_display_name, r.created_by_email)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            title="View details"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100"
-                            onClick={() => setDetailsItem(r)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {feeStatus !== 'PAID' ? (
-                            <>
-                          <button
-                            type="button"
-                            title="Edit"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100"
-                            onClick={() => {
-                              const parts = parseDateParts(r.due_date);
-                              setEditingId(r.id);
-                              setEditMonthIndex(parts.monthIndex);
-                              setEditYear(parts.year);
-                              setEditDueDay(parts.day);
-                              setEditAmountRupees(Math.round(r.amount_paise / 100));
-                              setEditStatus(r.status);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50"
-                            onClick={() => void confirmDeleteFeeRequest(r)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                            </>
-                          ) : null}
-                        </div>
-                      </td>
-                          </>
+                          <React.Fragment key={r.id}>
+                            <tr className="align-top">
+                              <td className="px-4 py-3 font-medium text-slate-900">{r.student_name ?? 'Unknown'}</td>
+                              <td className="px-4 py-3 text-slate-600">{r.student_email ?? 'N/A'}</td>
+                              <td className="px-4 py-3 text-slate-700">{r.title || formatFeeRequestPeriod(r.due_date)}</td>
+                              <td className="px-4 py-3 text-slate-700">{formatDateWithOrdinal(r.due_date)}</td>
+                              <td className="px-4 py-3 text-slate-700">
+                                <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getFeeStatusBadgeClass(feeStatus)}`}>
+                                  {toStatusLabel(feeStatus)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-700">
+                                <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getPaymentStatusBadgeClass(paymentStatus)}`}>
+                                  {toStatusLabel(paymentStatus)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-700">{formatRequestedBy(r.created_by_display_name, r.created_by_email)}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    title="View details"
+                                    aria-label="View details"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100"
+                                    onClick={() => setDetailsItem(r)}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </button>
+                                  {feeStatus !== 'PAID' ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        title="Edit"
+                                        aria-label="Edit"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100"
+                                        onClick={() => beginEdit(r)}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        title="Delete"
+                                        aria-label="Delete"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                                        onClick={() => void confirmDeleteFeeRequest(r)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                            {editingId === r.id ? (
+                              <tr>
+                                <td colSpan={8} className="px-4 pb-4">
+                                  {renderEditForm(r)}
+                                </td>
+                              </tr>
+                            ) : null}
+                          </React.Fragment>
                         );
-                      })()}
-                    </tr>
-                    {editingId === r.id ? (
-                      <tr>
-                        <td colSpan={8} className="px-4 pb-4">
-                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 grid gap-2 sm:grid-cols-5">
-                            <select value={editMonthIndex} onChange={(ev) => setEditMonthIndex(Number(ev.target.value))} className="rounded border border-slate-200 px-2 py-1 text-sm">
-                              {MONTH_OPTIONS.map((m, idx) => (
-                                <option key={`edit-${m}`} value={idx}>{m}</option>
-                              ))}
-                            </select>
-                            <select value={editYear} onChange={(ev) => setEditYear(Number(ev.target.value))} className="rounded border border-slate-200 px-2 py-1 text-sm">
-                              {yearOptions.map((y) => (
-                                <option key={`edit-year-${y}`} value={y}>{y}</option>
-                              ))}
-                            </select>
-                            <select value={editDueDay} onChange={(ev) => setEditDueDay(Number(ev.target.value))} className="rounded border border-slate-200 px-2 py-1 text-sm">
-                              {editDayOptions.map((d) => (
-                                <option key={`edit-day-${d}`} value={d}>{d}</option>
-                              ))}
-                            </select>
-                            <input type="number" min={1} value={editAmountRupees} onChange={(ev) => setEditAmountRupees(Number(ev.target.value))} className="rounded border border-slate-200 px-2 py-1 text-sm" placeholder="Amount ₹" />
-                            <select value={editStatus} onChange={(ev) => setEditStatus(ev.target.value as FeeRequestStatus)} className="rounded border border-slate-200 px-2 py-1 text-sm">
-                              {['DRAFT', 'ISSUED', 'PAID', 'CANCELLED'].map((s) => (
-                                <option key={`status-${s}`} value={s}>{s}</option>
-                              ))}
-                            </select>
-                            <div className="sm:col-span-5 text-xs text-slate-600">Title will be: {editFeeTitle} | Due: {formatDateForLabel(dueDateForEdit)}</div>
-                            <div className="sm:col-span-5 flex gap-2">
-                              <button
-                                type="button"
-                                className="rounded bg-[var(--admin-primary)] px-3 py-1 text-xs font-semibold text-white"
-                                onClick={async () => {
-                                  try {
-                                    setError(null);
-                                    await feesService.updateFeeRequest(r.id, {
-                                      title: editFeeTitle,
-                                      dueDate: dueDateForEdit,
-                                      amountPaise: Math.round(editAmountRupees * 100),
-                                      status: editStatus,
-                                    });
-                                    setEditingId(null);
-                                    await loadFeeRequests(studentId);
-                                  } catch (e) {
-                                    setError(e instanceof Error ? e.message : 'Failed to update fee request');
-                                  }
-                                }}
-                              >
-                                Save
-                              </button>
-                              <button type="button" className="rounded border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600" onClick={() => setEditingId(null)}>
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })() : null}
         </div>
       </div>
       {isCreateOpen ? (

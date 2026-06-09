@@ -6,9 +6,15 @@ coverage/
 *.log
 .env*
 !.env.example
+**/node_modules/
+**/build/
+**/dist/
+**/.env*
+!**/.env.example
 
 /generated/prisma
-server/uploads/
+mdpl-api/uploads/
+mdpl-api/logs/
 
 
 .env

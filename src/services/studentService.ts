@@ -44,6 +44,13 @@ export interface DBStudent {
   validated_by?: string | null;
   enrollment_id?: string | null;
   training_centers?: { name: string; slug: string } | null;
+  registration_id?: string | null;
+  training_center_name?: string | null;
+  current_belt?: string | null;
+  current_rank_label?: string | null;
+  current_stripe_level?: number | string | null;
+  next_grading_date?: string | null;
+  updated_at?: string | null;
 }
 
 import { API_BASE } from '../config';

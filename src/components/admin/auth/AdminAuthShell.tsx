@@ -31,22 +31,22 @@ export default function AdminAuthShell({ children, eyebrow, title, subtitle }: A
       </div>
 
       {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-[460px] text-center">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-8 sm:p-6">
+        <div className="w-full min-w-0 max-w-[460px] text-center">
           {eyebrow && (
             <div className="mb-4">
-              <span className="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-bold uppercase tracking-[0.2em] text-slate-300">
+              <span className="inline-block max-w-full break-words rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-slate-300 sm:px-4 sm:text-sm sm:tracking-[0.2em]">
                 {eyebrow}
               </span>
             </div>
           )}
           {title && (
-            <h1 className="text-3xl md:text-4xl font-bold font-display tracking-tight mb-3">
+            <h1 className="mb-3 break-words text-2xl font-bold tracking-tight font-display sm:text-3xl md:text-4xl">
               {title}
             </h1>
           )}
           {subtitle && (
-            <p className="text-slate-400 text-lg mb-10 max-w-md mx-auto">
+            <p className="mx-auto mb-8 max-w-md break-words text-base text-slate-400 sm:mb-10 sm:text-lg">
               {subtitle}
             </p>
           )}

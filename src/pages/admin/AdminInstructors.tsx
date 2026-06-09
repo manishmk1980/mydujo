@@ -102,15 +102,15 @@ function CreateInstructorPanel({
           <Field label="Bio (optional)"><textarea className={cn(inputCls, 'min-h-24')} value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} /></Field>
         </div>
       </div>
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
         <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
           <input type="checkbox" checked={form.canLogin} onChange={(e) => setForm((f) => ({ ...f, canLogin: e.target.checked }))} className="size-4 accent-[var(--admin-primary)]" />
           Allow login
         </label>
-        <div className="flex gap-2">
-          <button type="button" onClick={onCancel} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onCancel} className="min-h-11 flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 sm:flex-none">Cancel</button>
           <button type="button" disabled={!canSubmit || submitting} onClick={onSubmit}
-            className={cn('inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-extrabold text-sm', !canSubmit || submitting ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-[var(--admin-primary)] text-white hover:bg-[var(--admin-primary-hover)]')}>
+            className={cn('inline-flex min-h-11 flex-1 items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-extrabold text-sm sm:flex-none', !canSubmit || submitting ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-[var(--admin-primary)] text-white hover:bg-[var(--admin-primary-hover)]')}>
             {submitting && <Loader2 className="size-4 animate-spin" />} Create
           </button>
         </div>
@@ -220,20 +220,20 @@ function InstructorDetailDrawer({ instructor, onClose, onEdit, onAssign, onPause
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-2 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[85dvh] sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
             {instructor.profilePhotoUrl ? (
-              <img src={instructor.profilePhotoUrl} alt="" className="size-11 rounded-full object-cover border border-slate-200" />
+              <img src={instructor.profilePhotoUrl} alt="" className="size-11 shrink-0 rounded-full object-cover border border-slate-200" />
             ) : (
-              <div className="flex size-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400"><UserCog className="size-5" /></div>
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400"><UserCog className="size-5" /></div>
             )}
-            <div>
-              <p className="font-bold text-slate-900">{instructor.fullName}</p>
-              <p className="text-xs text-slate-500">{instructor.email}</p>
+            <div className="min-w-0">
+              <p className="truncate font-bold text-slate-900">{instructor.fullName}</p>
+              <p className="truncate text-xs text-slate-500">{instructor.email}</p>
               <AdminBadge variant={instructor.isActive ? 'success' : 'warning'} size="sm">{instructor.isActive ? 'Active' : 'Inactive'}</AdminBadge>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
+          <button onClick={onClose} aria-label="Close" className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="grid gap-3 text-sm sm:grid-cols-2">

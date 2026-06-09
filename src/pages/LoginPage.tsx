@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, Mail, UserCog } from 'lucide-react';
-import { motion } from 'motion/react';
-import mdplLogo from '@/assets/logo/mdpl-vr-logo.svg';
+import { AlertCircle, ArrowRight, Eye, EyeOff, GraduationCap, Lock, Mail, UserCog } from 'lucide-react';
+
+import PublicAuthLayout from '../components/public/PublicAuthLayout';
+import PublicAuthCard from '../components/public/PublicAuthCard';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
+
+type Role = 'student' | 'instructor';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'instructor'>('student');
+  const [role, setRole] = useState<Role>('student');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -17,19 +20,25 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname as string | undefined;
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
     const emailTrimmed = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
       setError('Please enter a valid email address.');
       return;
     }
+    if (!password.trim()) {
+      setError('Please enter your password.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const { error: err } = await login(emailTrimmed, password, role === 'instructor' ? 'instructor' : 'student');
+      const { error: err } = await login(emailTrimmed, password, role);
       if (err) {
         setError(typeof err === 'string' ? err : err?.message || 'Login failed.');
         return;
@@ -40,118 +49,187 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex justify-center mb-6">
-            <img src={mdplLogo} alt="MyDojo" className="h-24 w-auto brightness-0 invert" />
-          </Link>
-          <h2 className="text-xl font-bold text-white">Sign In</h2>
-          <p className="text-slate-400 mt-2">Access your dashboard and training tools</p>
-        </div>
+  const sidePanel = (
+    <div className="rounded-3xl border border-slate-200/80 bg-white/70 p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.05] sm:p-7">
+      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-600">
+        New to MyDojo?
+      </div>
+      <p className="mt-3 text-sm font-medium leading-6 text-slate-600 dark:text-white/70 sm:text-base sm:leading-7">
+        Create an account, apply as an instructor, or sign in with admin credentials from a dedicated entry.
+      </p>
 
-        <div className="bg-slate-800/80 p-8 rounded-3xl shadow-xl border border-slate-700">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-4 bg-red-900/30 text-red-400 rounded-2xl flex items-center gap-3 text-sm font-medium border border-red-800/50">
-                <AlertCircle className="size-5 shrink-0" />
-                {error}
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 bg-slate-900/40 border border-slate-700 rounded-2xl p-2">
-              <button
-                type="button"
-                onClick={() => setRole('student')}
-                className={cn(
-                  'flex-1 px-4 py-2 rounded-xl text-sm font-extrabold transition-colors',
-                  role === 'student' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:bg-slate-800'
-                )}
-              >
-                Student
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('instructor')}
-                className={cn(
-                  'flex-1 px-4 py-2 rounded-xl text-sm font-extrabold transition-colors inline-flex items-center justify-center gap-2',
-                  role === 'instructor' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:bg-slate-800'
-                )}
-              >
-                <UserCog className="size-4" />
-                Instructor
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-300 ml-1">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-500" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-600 rounded-2xl text-white placeholder-slate-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none"
-                  placeholder="you@example.com"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-300 ml-1">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-500" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3.5 bg-slate-900/50 border border-slate-600 rounded-2xl text-white placeholder-slate-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none"
-                  placeholder="••••••••"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((p) => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between px-1">
-              <Link to="/forgot-password" className="text-sm font-bold text-slate-400 hover:text-white">
-                Forgot password?
-              </Link>
-              <Link
-                to={role === 'instructor' ? '/register/instructor' : '/register/student'}
-                className="text-sm font-bold text-slate-400 hover:text-white"
-              >
-                Create {role === 'instructor' ? 'instructor' : 'student'} account
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-4 bg-amber-500 text-slate-900 rounded-2xl font-bold text-lg shadow-lg hover:bg-amber-400 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.99] flex items-center justify-center gap-2"
-            >
-              {submitting ? 'Signing in...' : 'Sign In'}
-              <ArrowRight className="size-5" />
-            </button>
-          </form>
-        </div>
-
-        <div className="mt-6 text-center">
-          <Link to="/admin/login" className="text-slate-400 hover:text-white text-sm">
-            Admin login →
-          </Link>
-        </div>
-      </motion.div>
+      <div className="mt-5 flex flex-col gap-2.5">
+        <Link
+          to={role === 'instructor' ? '/register/instructor' : '/register/student'}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-orange-500/50 bg-orange-50 px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-orange-700 transition hover:border-orange-600 hover:bg-orange-100 dark:border-orange-400/30 dark:bg-orange-500/10 dark:text-orange-300 dark:hover:bg-orange-500/20"
+        >
+          Create {role === 'instructor' ? 'instructor' : 'student'} account
+          <ArrowRight size={14} strokeWidth={3} />
+        </Link>
+        <Link
+          to="/admin/login"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white/80 px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-800 transition hover:border-orange-500 hover:text-orange-600 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:text-orange-400"
+        >
+          Admin sign in
+        </Link>
+      </div>
     </div>
   );
-}
 
+  return (
+    <PublicAuthLayout
+      eyebrow="Sign In"
+      title={
+        <>
+          Welcome
+          <span className="block text-orange-600">to MyDojo</span>
+        </>
+      }
+      description="Choose your role and sign in to your MDPL MyDojo portal."
+      sidePanel={sidePanel}
+    >
+      <PublicAuthCard
+        eyebrow="Choose your role"
+        title="Sign in to your portal"
+        description="Select student or instructor, then enter your credentials."
+      >
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {error ? (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-200"
+            >
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          ) : null}
+
+          <div
+            role="tablist"
+            aria-label="Choose role"
+            className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-100/70 p-1.5 dark:border-white/10 dark:bg-white/[0.05]"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={role === 'student'}
+              onClick={() => setRole('student')}
+              className={cn(
+                'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-[0.16em] transition sm:text-sm',
+                role === 'student'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20'
+                  : 'text-slate-700 hover:bg-white/80 dark:text-white/80 dark:hover:bg-white/10'
+              )}
+            >
+              <GraduationCap className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+              Student
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={role === 'instructor'}
+              onClick={() => setRole('instructor')}
+              className={cn(
+                'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-[0.16em] transition sm:text-sm',
+                role === 'instructor'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-600/20'
+                  : 'text-slate-700 hover:bg-white/80 dark:text-white/80 dark:hover:bg-white/10'
+              )}
+            >
+              <UserCog className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+              Instructor
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="login-email" className="ml-1 text-[11px] font-black uppercase tracking-[0.2em] text-slate-700 dark:text-white/80">
+              Email
+            </label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 dark:text-white/50" />
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+                className="w-full rounded-2xl border border-slate-300 bg-white py-4 pl-12 pr-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/25 dark:border-white/15 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/40"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="login-password" className="ml-1 text-[11px] font-black uppercase tracking-[0.2em] text-slate-700 dark:text-white/80">
+                Password
+              </label>
+              <Link
+                to="/forgot-password"
+                className="rounded-md text-xs font-bold text-orange-600 underline-offset-4 transition hover:underline dark:text-orange-400"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 dark:text-white/50" />
+              <input
+                id="login-password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                required
+                className="w-full rounded-2xl border border-slate-300 bg-white py-4 pl-12 pr-12 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/25 dark:border-white/15 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/40"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((p) => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-600 px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-white shadow-xl shadow-orange-600/30 transition hover:-translate-y-0.5 hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 sm:tracking-[0.18em]"
+          >
+            {role === 'instructor' ? (
+              <UserCog className="h-5 w-5" strokeWidth={2.5} />
+            ) : (
+              <GraduationCap className="h-5 w-5" strokeWidth={2.5} />
+            )}
+            {submitting ? 'Signing in...' : `Sign in as ${role === 'instructor' ? 'instructor' : 'student'}`}
+            <ArrowRight className="h-5 w-5" strokeWidth={3} />
+          </button>
+
+          <div className="flex flex-col items-stretch gap-3 border-t border-slate-100 pt-5 text-center text-sm dark:border-white/10 sm:flex-row sm:items-center sm:justify-between sm:text-left">
+            <p className="text-sm font-medium text-slate-600 dark:text-white/70">
+              Don&apos;t have an account?{' '}
+              <Link
+                to={role === 'instructor' ? '/register/instructor' : '/register/student'}
+                className="font-black text-orange-600 hover:underline dark:text-orange-400"
+              >
+                Create one
+              </Link>
+            </p>
+            <Link
+              to="/join-mydojo"
+              className="text-sm font-bold text-slate-700 transition hover:text-orange-600 dark:text-white/80 dark:hover:text-orange-400"
+            >
+              All sign-in options
+            </Link>
+          </div>
+        </form>
+      </PublicAuthCard>
+    </PublicAuthLayout>
+  );
+}
