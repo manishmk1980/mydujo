@@ -1,11 +1,17 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import app from "../src/app.js";
-import { prisma } from "../src/db.js";
+
+process.env.EMAIL_ENABLED = "false";
+
+const { default: app } = await import("../src/app.js");
+const { prisma } = await import("../src/db.js");
 
 const results = [];
 const testUserId = crypto.randomUUID();
 const testEmail = `api-smoke-${testUserId}@example.invalid`;
+const studentUserId = crypto.randomUUID();
+const studentEmail = `api-smoke-student-${studentUserId}@example.invalid`;
+let studentId;
 let server;
 
 function record(name, passed, detail) {
@@ -48,6 +54,24 @@ try {
       userRoles: { create: { roleId: role.id } },
     },
   });
+  const studentRole = await prisma.role.findUnique({ where: { name: "STUDENT" } });
+  const studentUser = await prisma.user.create({
+    data: {
+      id: studentUserId,
+      email: studentEmail,
+      userRoles: { create: { roleId: studentRole.id } },
+      student: {
+        create: {
+          fullName: "API Smoke Student",
+          email: studentEmail,
+          status: "approved",
+          termsAcceptedAt: new Date(),
+        },
+      },
+    },
+    include: { student: true },
+  });
+  studentId = studentUser.student.id;
 
   const token = jwt.sign(
     { sub: testUserId, email: testEmail, roles: ["SUPER_ADMIN"] },
@@ -133,10 +157,30 @@ try {
   for (const [name, path, options, expected] of tests) {
     await request(baseUrl, name, path, options, expected);
   }
+
+  const feeResponse = await fetch(`${baseUrl}/fees/requests`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({
+      student_id: studentId,
+      title: "API Smoke Fee",
+      amount_paise: 10000,
+      due_date: "2026-12-31",
+    }),
+  });
+  const feeBody = await feeResponse.json();
+  record("fee generation", feeResponse.status === 201, `HTTP ${feeResponse.status}`);
+  const notification = await prisma.notification.findFirst({
+    where: { userId: studentUserId, entityId: feeBody.fee_request?.id },
+  });
+  record("fee in-app notification", Boolean(notification), notification ? "created" : "missing");
 } finally {
   if (server) {
     await new Promise((resolve) => server.close(resolve));
   }
+  await prisma.notification.deleteMany({ where: { userId: studentUserId } }).catch(() => {});
+  await prisma.feeRequest.deleteMany({ where: { createdByUserId: testUserId } }).catch(() => {});
+  await prisma.user.delete({ where: { id: studentUserId } }).catch(() => {});
   await prisma.user.delete({ where: { id: testUserId } }).catch(() => {});
   await prisma.$disconnect();
 }

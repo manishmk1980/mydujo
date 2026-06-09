@@ -5,6 +5,7 @@
 import { Router } from "express";
 import argon2 from "argon2";
 import { prisma } from "../db.js";
+import { notifyAdminContact, notifyAdminRegistration, sendEmailSafely } from "../services/mail.js";
 
 const router = Router();
 
@@ -118,6 +119,10 @@ router.post("/register", async (req, res) => {
       return { user, student };
     });
 
+    sendEmailSafely(
+      notifyAdminRegistration({ role: "student", name: result.student.fullName, email: result.student.email, phone: result.student.phone }),
+      "student registration"
+    );
     return res.status(201).json({
       message: "Registration submitted successfully",
       student: {
@@ -154,6 +159,10 @@ router.post("/register/instructor", async (req, res) => {
       });
       return instructor;
     });
+    sendEmailSafely(
+      notifyAdminRegistration({ role: "instructor", name: result.fullName, email: result.email, phone: result.phone }),
+      "instructor registration"
+    );
     return res.status(201).json({ message: "Instructor application submitted", instructor: result });
   } catch (err) {
     console.error("POST /register/instructor error:", err);
@@ -165,6 +174,10 @@ router.post("/contact-enquiry", async (req, res) => {
   const { name, phone, email, message } = req.body || {};
   if (![name, phone, email, message].every((value) => String(value || "").trim())) return res.status(400).json({ error: "name, phone, email and message are required" });
   const enquiry = await prisma.contactEnquiry.create({ data: { name: String(name).trim(), phone: String(phone).trim(), email: String(email).trim().toLowerCase(), message: String(message).trim() } });
+  sendEmailSafely(
+    notifyAdminContact({ name: enquiry.name, phone: enquiry.phone, email: enquiry.email, message: enquiry.message }),
+    "contact enquiry"
+  );
   return res.status(201).json({ ok: true, id: enquiry.id });
 });
 

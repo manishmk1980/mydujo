@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { notifyAdminRegistration, sendEmailSafely } from "../services/mail.js";
 
 const router = Router();
 
@@ -75,6 +76,10 @@ router.post("/signup", async (req, res) => {
       { expiresIn: parseTTL(process.env.ACCESS_TOKEN_TTL || "15m") }
     );
 
+    sendEmailSafely(
+      notifyAdminRegistration({ role: "student account", name: user.email, email: user.email }),
+      "student account signup"
+    );
     return res.status(201).json({
       user: { id: user.id, email: user.email },
       accessToken,

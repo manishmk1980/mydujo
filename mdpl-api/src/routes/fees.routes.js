@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { notifyFeeGenerated, sendEmailSafely } from "../services/mail.js";
 
 const router = Router();
 const feeStatuses = new Set(["DRAFT", "ISSUED", "OVERDUE", "PAID", "CANCELLED"]);
@@ -27,6 +28,22 @@ const feeInclude = { student: true, trainingCenter: true };
 const submissionInclude = { student: true, feeRequest: true };
 async function currentStudent(userId) {
   return prisma.student.findUnique({ where: { userId } });
+}
+
+async function notifyStudentAboutFee(student, fee) {
+  if (student.userId) {
+    await prisma.notification.create({
+      data: {
+        userId: student.userId,
+        type: "FEE_REQUEST_ISSUED",
+        title: fee.title,
+        message: `A fee of INR ${(fee.amountPaise / 100).toFixed(2)} is due on ${fee.dueDate.toISOString().slice(0, 10)}.`,
+        entityType: "fee_request",
+        entityId: fee.id,
+      },
+    });
+  }
+  sendEmailSafely(notifyFeeGenerated({ student, fee }), "fee generated");
 }
 
 router.get("/my/requests", requireAuth, async (req, res) => {
@@ -87,6 +104,7 @@ router.post("/requests", requireAuth, async (req, res) => {
   const status = String(b.status || "ISSUED").toUpperCase();
   if (!feeStatuses.has(status)) return res.status(400).json({ error: "Invalid status" });
   const row = await prisma.feeRequest.create({ data: { studentId: b.student_id, trainingCenterId: b.training_center_id || null, title: b.title, description: b.description || null, amountPaise: Number(b.amount_paise), dueDate: new Date(b.due_date), status, issuedAt: status === "DRAFT" ? null : new Date(), createdByUserId: req.auth.userId }, include: feeInclude });
+  await notifyStudentAboutFee(row.student, row);
   return res.status(201).json({ request: feeDto(row), fee_request: feeDto(row) });
 });
 
@@ -96,7 +114,9 @@ router.post("/requests/bulk", requireAuth, async (req, res) => {
   const students = await prisma.student.findMany({ where: { status: "approved", trainingCenterId: b.training_center_id || undefined } });
   const created = [];
   for (const student of students) {
-    created.push(await prisma.feeRequest.create({ data: { studentId: student.id, trainingCenterId: student.trainingCenterId, title: b.title, description: b.description || null, amountPaise: Number(b.amount_paise), dueDate: new Date(b.due_date), status: b.issue_now ? "ISSUED" : "DRAFT", issuedAt: b.issue_now ? new Date() : null, createdByUserId: req.auth.userId }, include: feeInclude }));
+    const fee = await prisma.feeRequest.create({ data: { studentId: student.id, trainingCenterId: student.trainingCenterId, title: b.title, description: b.description || null, amountPaise: Number(b.amount_paise), dueDate: new Date(b.due_date), status: b.issue_now ? "ISSUED" : "DRAFT", issuedAt: b.issue_now ? new Date() : null, createdByUserId: req.auth.userId }, include: feeInclude });
+    created.push(fee);
+    await notifyStudentAboutFee(student, fee);
   }
   return res.status(201).json({ count: created.length, fee_requests: created.map(feeDto) });
 });

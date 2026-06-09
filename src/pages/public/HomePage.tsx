@@ -9,6 +9,7 @@ import PublicTournamentPerformance from "../../components/public/PublicTournamen
 import PublicRoadmap from "../../components/public/PublicRoadmap";
 import PublicManagementTeam from "../../components/public/PublicManagementTeam";
 import PublicFoundingCTA from "../../components/public/PublicFoundingCTA";
+import PublicContactAdmin from "../../components/public/PublicContactAdmin";
 import PublicLayout from "../../components/public/PublicLayout";
 
 export default function HomePage() {
@@ -24,6 +25,7 @@ export default function HomePage() {
       <PublicTournamentPerformance />
       <PublicRoadmap />
       <PublicManagementTeam />
+      <PublicContactAdmin />
       <PublicFoundingCTA />
     </PublicLayout>
   );

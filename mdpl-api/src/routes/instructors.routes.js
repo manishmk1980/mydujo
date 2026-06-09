@@ -2,6 +2,7 @@ import { Router } from "express";
 import argon2 from "argon2";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { notifyAdminRegistration, sendEmailSafely } from "../services/mail.js";
 
 const router = Router();
 
@@ -232,6 +233,15 @@ router.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
       });
     });
 
+    sendEmailSafely(
+      notifyAdminRegistration({
+        role: canLogin ? "instructor account created by admin" : "instructor record created by admin",
+        name: instructor.fullName,
+        email: instructor.email,
+        phone: instructor.phone,
+      }),
+      "admin-created instructor"
+    );
     return res.status(201).json({ instructor });
   } catch (err) {
     console.error("POST /instructors error:", err);

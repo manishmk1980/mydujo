@@ -113,7 +113,7 @@ export default function Contact() {
             </p>
             <p className="flex items-center gap-3 text-slate-600">
               <Mail className="size-5 text-primary shrink-0" />
-              sarjuram312@gmail.com
+              mydojo.pvt.ltd@gmail.com
             </p>
           </section>
 
