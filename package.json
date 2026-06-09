@@ -10,7 +10,8 @@
     "preview:prod": "vite build && vite preview --port 4173",
     "clean": "rm -rf build dist",
     "lint": "tsc --noEmit",
-    "validate:json": "node scripts/validate-json-files.mjs"
+    "validate:json": "node scripts/validate-json-files.mjs",
+    "validate:release": "npm run lint && npm run build && cd mdpl-api && npm run test:api"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
