@@ -12,7 +12,9 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'build',
       chunkSizeWarningLimit: 1500,
+      assetsInlineLimit: 4096,
     },
+    assetsInclude: ['**/*.svg'],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

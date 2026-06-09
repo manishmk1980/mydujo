@@ -1,4 +1,7 @@
 ﻿import { ArrowRight, PlayCircle, ShieldCheck } from "lucide-react";
+import heroPng from "@/assets/images/mydojo-hero1.png";
+import heroWebp from "@/assets/images/mydojo-hero1.webp";
+import { ResponsivePicture } from "@/components/ui/ResponsivePicture";
 
 const heroTitleClamp = "text-[clamp(2.8rem,15vw,5.5rem)]";
 
@@ -18,7 +21,8 @@ export default function PublicHero() {
       </div>
 
       <div className="relative mx-auto flex w-full min-w-0 max-w-7xl flex-col justify-center px-4 py-8 md:px-5 md:py-14 lg:min-h-[calc(100dvh-5.5rem)] lg:px-8 lg:py-20">
-        <div className="min-w-0 max-w-6xl">
+        <div className="grid min-w-0 w-full grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12 xl:gap-16">
+        <div className="min-w-0 max-w-6xl lg:max-w-none">
           <div className="mb-5 flex flex-wrap items-center gap-3 text-[10px] font-black uppercase leading-snug tracking-[0.28em] text-orange-600 sm:mb-8 sm:gap-4 sm:text-xs sm:tracking-[0.45em]">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-500/50">
               <ShieldCheck size={16} strokeWidth={2.5} />
@@ -53,6 +57,24 @@ export default function PublicHero() {
               Explore Vision
             </a>
           </div>
+        </div>
+
+        <div className="relative mx-auto w-full max-w-sm sm:max-w-md lg:mx-0 lg:max-w-none lg:justify-self-end">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-orange-500/20 via-transparent to-slate-900/10 blur-2xl dark:from-orange-500/25 dark:to-black/40"
+          />
+          <ResponsivePicture
+            webpSrc={heroWebp}
+            fallbackSrc={heroPng}
+            alt="Martial artists training together — MyDojo unified sports ecosystem"
+            loading="eager"
+            fetchPriority="high"
+            sizes="(min-width: 1024px) 42vw, (min-width: 640px) 70vw, 92vw"
+            className="relative block w-full"
+            imgClassName="mx-auto w-full max-h-[min(72vh,40rem)] rounded-[1.75rem] object-contain object-center shadow-2xl shadow-slate-900/15 ring-1 ring-slate-900/10 dark:shadow-black/40 dark:ring-white/10 lg:max-h-[min(78vh,44rem)]"
+          />
+        </div>
         </div>
       </div>
     </section>
