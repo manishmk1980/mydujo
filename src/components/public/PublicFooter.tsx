@@ -81,19 +81,29 @@ export default function PublicFooter() {
           <h3 className="mydojo-nav-text text-sm text-orange-600">Contact</h3>
 
           <div className="public-theme-muted mt-5 space-y-3 text-sm font-bold sm:mt-6 sm:space-y-4">
-            <div className="flex min-w-0 items-start gap-3">
+            <a
+              href="mailto:mydojo.pvt.ltd@gmail.com"
+              className="flex min-w-0 items-start gap-3 hover:text-orange-500"
+            >
               <Mail size={18} className="mt-0.5 shrink-0" />
-              <span className="min-w-0 break-all">info@mydojo.co.in</span>
-            </div>
+              <span className="min-w-0 break-all">mydojo.pvt.ltd@gmail.com</span>
+            </a>
 
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 items-start gap-3">
               <Phone size={18} className="shrink-0" />
-              <span className="min-w-0 break-words">Contact Academy</span>
+              <span className="min-w-0 break-words">
+                <a href="tel:+919934157090" className="hover:text-orange-500">9934157090</a>
+                {" / "}
+                <a href="tel:+919122466212" className="hover:text-orange-500">9122466212</a>
+              </span>
             </div>
 
-            <div className="flex min-w-0 items-center gap-3">
-              <MapPin size={18} className="shrink-0" />
-              <span className="min-w-0">India</span>
+            <div className="flex min-w-0 items-start gap-3">
+              <MapPin size={18} className="mt-0.5 shrink-0" />
+              <address className="min-w-0 break-words not-italic leading-6">
+                H/NO-736, BLOCK-B, LOHAR LINE, NEAR GUDRI, Sonari (East Singhbhum),
+                East Singhbhum, East Singhbhum - 831011, Jharkhand
+              </address>
             </div>
           </div>
 
@@ -102,7 +112,7 @@ export default function PublicFooter() {
               Full Name
             </div>
             <p className="public-theme-muted mt-2 break-words text-sm font-bold leading-6">
-              MyDojo Private Limited
+              MY DUJO PRIVATE LIMITED
             </p>
           </div>
         </div>

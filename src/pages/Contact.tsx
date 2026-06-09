@@ -102,18 +102,24 @@ export default function Contact() {
             <p className="flex items-start gap-3 text-slate-600">
               <MapPin className="size-5 text-primary mt-0.5 shrink-0" />
               <span>
-                Resident of H/No-736, Block-B, Lohar Line, Near Gudri Bazar, Sonari,
-                <br />
-                Jamshedpur, East Singhbhum, Jharkhand - 831011
+                <strong className="block text-slate-900">MY DUJO PRIVATE LIMITED</strong>
+                H/NO-736, BLOCK-B, LOHAR LINE, NEAR GUDRI, Sonari (East Singhbhum),
+                East Singhbhum, East Singhbhum - 831011, Jharkhand
               </span>
             </p>
             <p className="flex items-center gap-3 text-slate-600">
               <Phone className="size-5 text-primary shrink-0" />
-              +91 91224 66212 / +91 90408 20704
+              <span>
+                <a href="tel:+919934157090" className="hover:text-primary hover:underline">9934157090</a>
+                {' / '}
+                <a href="tel:+919122466212" className="hover:text-primary hover:underline">9122466212</a>
+              </span>
             </p>
             <p className="flex items-center gap-3 text-slate-600">
               <Mail className="size-5 text-primary shrink-0" />
-              mydojo.pvt.ltd@gmail.com
+              <a href="mailto:mydojo.pvt.ltd@gmail.com" className="hover:text-primary hover:underline">
+                mydojo.pvt.ltd@gmail.com
+              </a>
             </p>
           </section>
 

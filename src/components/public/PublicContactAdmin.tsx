@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Mail, MessageSquareText, Phone, Send, User } from "lucide-react";
+import { Mail, MapPin, MessageSquareText, Phone, Send, User } from "lucide-react";
 
 import { API_BASE } from "../../config";
 
@@ -47,10 +47,28 @@ export default function PublicContactAdmin() {
           <p className="public-theme-muted mt-6 max-w-xl text-lg font-medium leading-8">
             Ask about registration, training centers, partnerships, fees, or platform support. Your message goes directly to the MyDojo admin team.
           </p>
-          <a href="mailto:mydojo.pvt.ltd@gmail.com" className="mt-7 inline-flex items-center gap-3 font-bold text-orange-600 hover:underline">
-            <Mail size={20} />
-            mydojo.pvt.ltd@gmail.com
-          </a>
+          <div className="mt-7 grid gap-4 font-bold">
+            <a href="mailto:mydojo.pvt.ltd@gmail.com" className="inline-flex items-start gap-3 text-orange-600 hover:underline">
+              <Mail className="mt-0.5 shrink-0" size={20} />
+              <span className="break-all">mydojo.pvt.ltd@gmail.com</span>
+            </a>
+            <div className="public-theme-muted flex items-start gap-3">
+              <Phone className="mt-0.5 shrink-0 text-orange-600" size={20} />
+              <span>
+                <a href="tel:+919934157090" className="hover:text-orange-600 hover:underline">9934157090</a>
+                {" / "}
+                <a href="tel:+919122466212" className="hover:text-orange-600 hover:underline">9122466212</a>
+              </span>
+            </div>
+            <address className="public-theme-muted flex items-start gap-3 not-italic leading-7">
+              <MapPin className="mt-1 shrink-0 text-orange-600" size={20} />
+              <span>
+                <strong className="block text-slate-950 dark:text-white">MY DUJO PRIVATE LIMITED</strong>
+                H/NO-736, BLOCK-B, LOHAR LINE, NEAR GUDRI, Sonari (East Singhbhum),
+                East Singhbhum, East Singhbhum - 831011, Jharkhand
+              </span>
+            </address>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="public-theme-surface grid gap-4 rounded-[2rem] border p-5 shadow-xl backdrop-blur-xl sm:grid-cols-2 sm:p-8">
