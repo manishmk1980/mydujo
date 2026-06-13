@@ -12,6 +12,7 @@ import {
   ReceiptText,
   CreditCard,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
 import { CollapsibleSidebarShell } from '../layout/CollapsibleSidebarShell';
 import { AdminSidebarNavItem } from './layout/AdminSidebarNavItem';
@@ -46,6 +47,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'OPERATIONS',
     items: [
+      { to: '/admin/chat', label: 'Chat & Enquiries', icon: MessageSquare, match: (p) => p.startsWith('/admin/chat') },
       {
         to: '/admin/fees',
         label: 'Fee Requests',

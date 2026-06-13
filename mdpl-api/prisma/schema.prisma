@@ -44,6 +44,54 @@ enum ClassSessionStatus {
   rescheduled
 }
 
+enum ChatThreadStatus {
+  NEW
+  OPEN
+  ASSIGNED
+  WAITING_FOR_VISITOR
+  WAITING_FOR_ADMIN
+  RESOLVED
+  CLOSED
+  SPAM
+}
+
+enum ChatVisitorRole {
+  PARENT
+  STUDENT
+  INSTRUCTOR
+  ACADEMY
+  OTHER
+}
+
+enum ChatSenderType {
+  VISITOR
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+  BOT
+  SYSTEM
+}
+
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  URL
+  SYSTEM
+  BOT_SUGGESTION
+  BOT_HANDOFF
+}
+
+enum ChatFileCategory {
+  IMAGE
+  PDF
+  DOCUMENT
+  SPREADSHEET
+  VIDEO
+  AUDIO
+  OTHER
+}
+
 // ----------------------------------------
 // Auth: unified users + sessions
 // ----------------------------------------
@@ -65,6 +113,8 @@ model User {
   paymentSubmissions PaymentSubmission[] @relation("PaymentSubmittedBy")
   paymentReviews     PaymentSubmission[] @relation("PaymentReviewedBy")
   notifications      Notification[]
+  chatThreads        ChatThread[]
+  chatMessages       ChatMessage[]
 
   @@map("users")
 }
@@ -111,7 +161,9 @@ model AdminUser {
   displayName String?  @map("display_name") @db.VarChar(255)
   createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedChatThreads ChatThread[]
+  chatMessages        ChatMessage[]
 
   @@map("admin_users")
 }
@@ -137,6 +189,7 @@ model Instructor {
   user          User?                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignments   InstructorStudentAssignment[]
   classSessions ClassSession[]
+  chatThreads   ChatThread[]
 
   @@map("instructors")
 }
@@ -251,6 +304,7 @@ model Student {
   instructorAssignments InstructorStudentAssignment[]
   feeRequests           FeeRequest[]
   paymentSubmissions    PaymentSubmission[]
+  chatThreads           ChatThread[]
 
   @@index([userId])
   @@index([email])
@@ -460,4 +514,92 @@ model ContactEnquiry {
   createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
   @@map("contact_enquiries")
+}
+
+model ChatThread {
+  id                 String           @id @default(uuid()) @db.Char(36)
+  publicToken        String           @unique @map("public_token") @db.VarChar(128)
+  visitorName        String           @map("visitor_name") @db.VarChar(255)
+  visitorEmail       String?          @map("visitor_email") @db.VarChar(255)
+  visitorPhone       String?          @map("visitor_phone") @db.VarChar(32)
+  visitorRole        ChatVisitorRole  @default(OTHER) @map("visitor_role")
+  userId             String?          @map("user_id") @db.Char(36)
+  studentId          String?          @map("student_id") @db.Char(36)
+  instructorId       String?          @map("instructor_id") @db.Char(36)
+  sourceType         String?          @map("source_type") @db.VarChar(64)
+  sourcePage         String?          @map("source_page") @db.VarChar(512)
+  campaignSource     String?          @map("campaign_source") @db.VarChar(128)
+  utmSource          String?          @map("utm_source") @db.VarChar(128)
+  utmMedium          String?          @map("utm_medium") @db.VarChar(128)
+  utmCampaign        String?          @map("utm_campaign") @db.VarChar(128)
+  subject            String?          @db.VarChar(255)
+  status             ChatThreadStatus @default(NEW)
+  priority           String           @default("NORMAL") @db.VarChar(32)
+  assignedAdminId    String?          @map("assigned_admin_id") @db.Char(36)
+  botEnabled         Boolean          @default(true) @map("bot_enabled")
+  botHandoffRequired Boolean          @default(false) @map("bot_handoff_required")
+  lastMessageAt      DateTime         @default(now()) @map("last_message_at") @db.DateTime(0)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.DateTime(0)
+  closedAt           DateTime?        @map("closed_at") @db.DateTime(0)
+
+  user          User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  student       Student?         @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  instructor    Instructor?      @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+  assignedAdmin AdminUser?       @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  messages      ChatMessage[]
+  attachments   ChatAttachment[]
+
+  @@index([status])
+  @@index([assignedAdminId])
+  @@index([visitorEmail])
+  @@index([visitorPhone])
+  @@index([lastMessageAt])
+  @@index([createdAt])
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id            String          @id @default(uuid()) @db.Char(36)
+  threadId      String          @map("thread_id") @db.Char(36)
+  senderType    ChatSenderType  @map("sender_type")
+  senderUserId  String?         @map("sender_user_id") @db.Char(36)
+  senderAdminId String?         @map("sender_admin_id") @db.Char(36)
+  messageType   ChatMessageType @default(TEXT) @map("message_type")
+  messageText   String?         @map("message_text") @db.Text
+  metadataJson  Json?           @map("metadata_json")
+  isInternal    Boolean         @default(false) @map("is_internal")
+  isRead        Boolean         @default(false) @map("is_read")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.DateTime(0)
+
+  thread      ChatThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderUser  User?            @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderAdmin AdminUser?       @relation(fields: [senderAdminId], references: [id], onDelete: SetNull)
+  attachments ChatAttachment[]
+
+  @@index([threadId, createdAt])
+  @@index([senderAdminId])
+  @@map("chat_messages")
+}
+
+model ChatAttachment {
+  id             String           @id @default(uuid()) @db.Char(36)
+  messageId      String           @map("message_id") @db.Char(36)
+  threadId       String           @map("thread_id") @db.Char(36)
+  uploadedByType ChatSenderType   @map("uploaded_by_type")
+  fileName       String           @map("file_name") @db.VarChar(255)
+  fileUrl        String           @map("file_url") @db.VarChar(512)
+  fileMimeType   String           @map("file_mime_type") @db.VarChar(128)
+  fileSize       Int              @map("file_size")
+  fileCategory   ChatFileCategory @map("file_category")
+  storagePath    String           @map("storage_path") @db.VarChar(512)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.DateTime(0)
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  thread  ChatThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([threadId])
+  @@map("chat_attachments")
 }

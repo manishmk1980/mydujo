@@ -15,6 +15,7 @@ import uploadRoutes from "./routes/upload.routes.js";
 import feesRoutes from "./routes/fees.routes.js";
 import notificationsRoutes from "./routes/notifications.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
 
 const app = express();
 
@@ -36,12 +37,12 @@ const corsOptions = {
       : corsOrigins[0],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Chat-Token"],
 };
 
 app.use(cors(corsOptions));
 
-app.use(express.json());
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "12mb" }));
 app.use(cookieParser());
 
 app.get("/", (req, res) => {
@@ -64,6 +65,7 @@ app.use("/upload", uploadRoutes);
 app.use("/fees", feesRoutes);
 app.use("/notifications", notificationsRoutes);
 app.use("/admin", adminRoutes);
+app.use("/chat", chatRoutes);
 app.use("/", publicRoutes);
 
 app.use("/uploads", express.static(uploadsDir));

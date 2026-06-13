@@ -56,6 +56,7 @@ import AdminProfile from './pages/admin/AdminProfile';
 import AdminFeeRequests from './pages/admin/AdminFeeRequests';
 import AdminPaymentReview from './pages/admin/AdminPaymentReview';
 import AdminInstructorApplications from './pages/admin/AdminInstructorApplications';
+import AdminChat from './pages/admin/AdminChat';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import InstructorRegistrationPage from './pages/public/InstructorRegistrationPage';
@@ -108,6 +109,7 @@ export default function App() {
                   <Route path="payment-review" element={<AdminPaymentReview />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="profile" element={<AdminProfile />} />
+                    <Route path="chat" element={<AdminChat />} />
                   </Route>
 
                   {/* Public Auth Routes */}
