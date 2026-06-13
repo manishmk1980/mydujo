@@ -505,7 +505,14 @@ export default function Registration() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setSubmitError((data as { error?: string }).error || 'Registration failed');
+        const apiError = (data as { error?: string }).error || 'Registration failed';
+
+        if (res.status === 409 || apiError.toLowerCase().includes('email already registered')) {
+          setSubmitError('This email is already registered. Please sign in to continue.');
+        } else {
+          setSubmitError(apiError);
+        }
+
         return;
       }
 
@@ -656,8 +663,17 @@ export default function Registration() {
             className="space-y-10 p-5 sm:p-8 md:p-12"
           >
             {submitError && (
-              <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 text-sm font-medium">
-                {submitError}
+              <div className="space-y-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-600">
+                <p>{submitError}</p>
+
+                {submitError === 'This email is already registered. Please sign in to continue.' && (
+                  <Link
+                    to="/student/login"
+                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800"
+                  >
+                    Sign in as Student
+                  </Link>
+                )}
               </div>
             )}
 
