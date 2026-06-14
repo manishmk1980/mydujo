@@ -20,9 +20,17 @@ import {
   MapPin,
   BookOpen,
   UserCog,
+  Mail,
+  Phone,
+  ChevronDown,
+  UserRound,
+  Home,
+  GraduationCap,
+  ShieldCheck,
+  Settings,
+  Camera,
 } from 'lucide-react';
 import { trainingCenterService, type TrainingCenter } from '../../services/trainingCenterService';
-import { AspectRatio } from '../../components/ui/aspect-ratio';
 import { metaService, type DisciplineOption } from '../../services/metaService';
 
 import { studentService, DBStudent as Student } from '../../services/studentService';
@@ -31,6 +39,7 @@ import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
+import { pushDataLayer } from '../../lib/dataLayer';
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -55,7 +64,7 @@ const BELT_GRADE_OPTIONS = [
 function formatBeltGrade(value?: string | null) {
   const match = BELT_GRADE_OPTIONS.find((opt) => opt.value === value);
   if (match) return match.label;
-  return value ? value.replace(/_/g, ' ') : '—';
+  return value ? value.replace(/_/g, ' ') : 'Not provided';
 }
 
 function renderStatusBadge(status: string) {
@@ -68,6 +77,281 @@ function renderStatusBadge(status: string) {
       {Icon && <Icon className="size-3.5" />}
       {label}
     </span>
+  );
+}
+
+function safeText(value: unknown, fallback = 'Not provided') {
+  if (value == null) return fallback;
+  const text = String(value).trim();
+  return text && !/[\uFFFD\u00C3]|\u00E2\u20AC/.test(text) ? text : fallback;
+}
+
+function getInitials(value?: string | null) {
+  return safeText(value, 'Student')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
+}
+
+function normalizeMediaUrl(raw?: string | null) {
+  const value = raw?.trim();
+  if (!value) return null;
+  if (/^\/(?:api\/)?uploads\//i.test(value)) return value;
+  try {
+    const parsed = new URL(value);
+    if (!['http:', 'https:'].includes(parsed.protocol) || typeof window === 'undefined') return null;
+    const currentHost = window.location.hostname.toLowerCase();
+    const mediaHost = parsed.hostname.toLowerCase();
+    if (mediaHost !== currentHost && !['localhost', '127.0.0.1'].includes(mediaHost)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildAddress(student: Student) {
+  return [student.address, student.locality, student.city, student.state, student.pincode]
+    .filter((part) => safeText(part, ''))
+    .join(', ') || 'Not provided';
+}
+
+function displayDate(value?: string | null) {
+  if (!value) return 'Not provided';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? 'Not provided'
+    : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function studentAnalyticsPayload(student: Student) {
+  return {
+    student_id: student.id,
+    status: student.status,
+    preferred_discipline: student.preferred_discipline || undefined,
+    training_center_id: student.training_center_id || undefined,
+    has_profile_photo: Boolean(normalizeMediaUrl(student.profile_photo_url)),
+  };
+}
+
+function SafeAvatar({ student, className = '' }: { student: Student; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const url = normalizeMediaUrl(student.profile_photo_url);
+  useEffect(() => setFailed(false), [student.id, url]);
+  return (
+    <div className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-orange-50 font-black text-orange-700 ${className}`}>
+      <span aria-hidden="true">{getInitials(student.full_name || student.email)}</span>
+      {url && !failed ? (
+        <img src={url} alt={`${safeText(student.full_name, 'Student')} profile`} className="absolute inset-0 size-full object-cover" onError={() => setFailed(true)} />
+      ) : null}
+    </div>
+  );
+}
+
+type DetailItem = { label: string; value: React.ReactNode };
+type DetailSection = { key: string; title: string; icon: typeof UserRound; items: DetailItem[]; preview?: string };
+
+function DetailItems({ items, columns = 'sm:grid-cols-2' }: { items: DetailItem[]; columns?: string }) {
+  return (
+    <div className={`grid grid-cols-1 gap-x-5 gap-y-4 ${columns}`}>
+      {items.map((item) => (
+        <div key={item.label} className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{item.label}</p>
+          <div className="mt-1 break-words text-sm font-semibold leading-5 text-slate-900">{item.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DetailCard({ section, columns }: { section: DetailSection; columns?: string }) {
+  const Icon = section.icon;
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-black text-slate-950">
+        <span className="flex size-7 items-center justify-center rounded-lg bg-violet-50 text-violet-700"><Icon className="size-4" /></span>
+        {section.title}
+      </h3>
+      <DetailItems items={section.items} columns={columns} />
+    </section>
+  );
+}
+
+function MobileDetailAccordion({ sections }: { sections: DetailSection[] }) {
+  const [openKey, setOpenKey] = useState('training');
+  return (
+    <div className="space-y-2 lg:hidden">
+      {sections.map((section) => {
+        const Icon = section.icon;
+        const open = openKey === section.key;
+        return (
+          <section key={section.key} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <button type="button" aria-expanded={open} onClick={() => setOpenKey(open ? '' : section.key)} className="flex min-h-12 w-full items-center gap-3 px-3 py-2.5 text-left">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700"><Icon className="size-4" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-black text-slate-950">{section.title}</span>
+                {section.preview && !open ? <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-500">{section.preview}</span> : null}
+              </span>
+              <ChevronDown className={`size-4 shrink-0 text-slate-400 transition ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open ? <div className="border-t border-slate-100 bg-slate-50/60 p-4"><DetailItems items={section.items} /></div> : null}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function StudentDetailsReadOnly({
+  student,
+  discipline,
+  onEdit,
+  onAssign,
+  onReset,
+  onDelete,
+}: {
+  student: Student;
+  discipline: DisciplineOption | null;
+  onEdit: () => void;
+  onAssign: () => void;
+  onReset: () => void;
+  onDelete: () => void;
+}) {
+  const photoUrl = normalizeMediaUrl(student.profile_photo_url);
+  const disciplineImage = normalizeMediaUrl(discipline?.imageUrl || discipline?.image_url);
+  const centerName = student.training_center_name || (student.training_centers as { name?: string } | null)?.name;
+  const disciplineLabel = discipline?.label || safeText(student.preferred_discipline, 'Not provided').replace(/_/g, ' ');
+  const schoolLocation = [student.school_college_location_city, student.school_college_location_state, student.school_college_location_pin].filter(Boolean).join(', ');
+  const payload = studentAnalyticsPayload(student);
+  const sections: DetailSection[] = [
+    {
+      key: 'personal', title: 'Personal Details', icon: UserRound,
+      items: [
+        { label: 'Full Name', value: safeText(student.full_name) },
+        { label: 'Date of Birth', value: displayDate(student.date_of_birth) },
+        { label: 'Gender', value: safeText(student.gender) },
+        { label: 'Blood Group', value: safeText(student.blood_group) },
+        { label: 'Aadhar Number', value: safeText(student.aadhar_number) },
+      ],
+    },
+    {
+      key: 'contact', title: 'Contact & Guardian', icon: Phone,
+      items: [
+        { label: 'Email', value: safeText(student.email) },
+        { label: 'Phone', value: safeText(student.phone) },
+        { label: 'Emergency Contact', value: safeText(student.emergency_contact) },
+        { label: 'Parent / Guardian', value: safeText(student.parent_guardian_name) },
+      ],
+    },
+    {
+      key: 'training', title: 'Training & Assignment', icon: ShieldCheck,
+      preview: `${disciplineLabel} · ${safeText(student.current_belt || student.belt_grade)} · ${safeText(student.current_rank_label)}`,
+      items: [
+        {
+          label: 'Preferred Discipline',
+          value: <span className="flex items-center gap-2">{disciplineImage ? <img src={disciplineImage} alt="" className="size-8 rounded-lg border border-slate-200 object-cover" /> : null}<span className="capitalize">{disciplineLabel}</span></span>,
+        },
+        { label: 'Training Center', value: safeText(centerName) },
+        { label: 'Assigned Instructor', value: safeText(student.instructor_name) },
+        { label: 'Belt / Grade', value: formatBeltGrade(student.belt_grade) },
+        { label: 'Current Belt', value: safeText(student.current_belt) },
+        { label: 'Current Rank', value: safeText(student.current_rank_label) },
+        { label: 'Stripe Level', value: safeText(student.current_stripe_level) },
+        { label: 'Next Grading Date', value: displayDate(student.next_grading_date) },
+      ],
+    },
+    {
+      key: 'education', title: 'Education', icon: GraduationCap,
+      items: [
+        { label: 'Qualification / Class', value: safeText(student.qualification) },
+        { label: 'Institution', value: safeText(student.school_college_name) },
+        { label: 'School / College Location', value: safeText(schoolLocation) },
+      ],
+    },
+    {
+      key: 'address', title: 'Address', icon: Home,
+      items: [
+        { label: 'Full Address', value: buildAddress(student) },
+        { label: 'Locality', value: safeText(student.locality) },
+        { label: 'City', value: safeText(student.city) },
+        { label: 'State', value: safeText(student.state) },
+        { label: 'PIN Code', value: safeText(student.pincode) },
+      ],
+    },
+    {
+      key: 'status', title: 'Status Summary', icon: ShieldCheck,
+      items: [
+        { label: 'Status', value: renderStatusBadge(student.status) },
+        { label: 'Marketing Opt-in', value: student.marketing_opt_in ? 'Yes' : 'No' },
+        { label: 'Terms Accepted', value: student.terms_accepted_at ? 'Yes' : 'No' },
+        { label: 'Validated At', value: displayDate(student.validated_at) },
+      ],
+    },
+    {
+      key: 'system', title: 'System Information', icon: Settings,
+      items: [
+        { label: 'Registration ID', value: safeText(student.registration_id) },
+        { label: 'Enrollment ID', value: safeText(student.enrollment_id) },
+        { label: 'Registered On', value: displayDate(student.created_at) },
+        { label: 'Last Updated', value: displayDate(student.updated_at) },
+      ],
+    },
+    {
+      key: 'photo', title: 'Profile Photo', icon: Camera,
+      items: [{
+        label: 'Photo',
+        value: photoUrl ? (
+          <a href={photoUrl} target="_blank" rel="noopener noreferrer" onClick={() => pushDataLayer('admin_student_photo_opened', payload)} className="inline-flex items-center gap-1.5 text-blue-700 underline">
+            View Photo <ExternalLink className="size-3.5" />
+          </a>
+        ) : 'No valid profile photo available',
+      }],
+    },
+  ];
+
+  const actionClass = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition sm:px-4 sm:text-sm';
+
+  return (
+    <>
+      <MobileDetailAccordion sections={sections} />
+
+      <div className="hidden grid-cols-[minmax(0,1fr)_17rem] gap-4 lg:grid">
+        <div className="space-y-4">
+          <DetailCard section={sections[0]} columns="sm:grid-cols-3 xl:grid-cols-5" />
+          <DetailCard section={sections[1]} columns="sm:grid-cols-2 xl:grid-cols-4" />
+          <DetailCard section={sections[2]} columns="sm:grid-cols-2 xl:grid-cols-4" />
+          <div className="grid grid-cols-2 gap-4">
+            <DetailCard section={sections[3]} />
+            <DetailCard section={sections[4]} />
+          </div>
+        </div>
+        <aside className="space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950"><Camera className="size-4 text-violet-700" /> Profile Photo</h3>
+            <SafeAvatar student={student} className="aspect-[4/3] w-full rounded-xl text-3xl" />
+            {photoUrl ? (
+              <a href={photoUrl} target="_blank" rel="noopener noreferrer" onClick={() => pushDataLayer('admin_student_photo_opened', payload)} className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 text-xs font-bold text-blue-700 hover:bg-blue-50">
+                View Photo <ExternalLink className="size-3.5" />
+              </a>
+            ) : null}
+          </section>
+          <DetailCard section={sections[5]} columns="grid-cols-1" />
+          <DetailCard section={sections[6]} columns="grid-cols-1" />
+        </aside>
+      </div>
+
+      <div className="sticky bottom-0 z-20 -mx-3 mt-5 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
+          <button onClick={onEdit} className={`${actionClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}><Edit className="size-3.5" /><span className="max-[360px]:hidden">Edit Record</span><span className="min-[361px]:hidden">Edit</span></button>
+          <button onClick={onAssign} className={`${actionClass} border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100`}><MapPin className="size-3.5" />Assign</button>
+          <button onClick={onReset} className={`${actionClass} border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100`}><Key className="size-3.5" /><span className="max-[360px]:hidden">Password Reset</span><span className="min-[361px]:hidden">Reset</span></button>
+          {photoUrl ? <a href={photoUrl} target="_blank" rel="noopener noreferrer" onClick={() => pushDataLayer('admin_student_photo_opened', payload)} className={`${actionClass} hidden border-slate-200 bg-white text-slate-700 hover:bg-slate-50 lg:inline-flex`}><ExternalLink className="size-3.5" />View Photo</a> : null}
+          <Link onClick={() => pushDataLayer('admin_student_fee_request_clicked', payload)} to={`/admin/fees?studentId=${encodeURIComponent(student.id)}&studentName=${encodeURIComponent(student.full_name)}`} className={`${actionClass} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 lg:ml-auto`}><HandCoins className="size-3.5" />Fee Request</Link>
+          <button onClick={onDelete} className={`${actionClass} col-span-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 lg:col-span-1`}><Trash2 className="size-3.5" /><span className="max-[360px]:hidden">Delete Student</span><span className="min-[361px]:hidden">Delete</span></button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -192,8 +476,14 @@ export default function AdminStudents() {
   const [flashMessage, setFlashMessage] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
 
   const startEditing = (student: Student) => {
+    pushDataLayer('admin_student_edit_started', studentAnalyticsPayload(student));
     setEditingId(student.id);
     setEditForm(student);
+  };
+
+  const openStudentDetails = (student: Student) => {
+    pushDataLayer('admin_student_detail_opened', studentAnalyticsPayload(student));
+    setSelectedStudentId(student.id);
   };
 
   const updateStudent = async () => {
@@ -236,6 +526,8 @@ export default function AdminStudents() {
   };
 
   const deleteStudent = async (id: string) => {
+    const student = students.find((item) => item.id === id);
+    if (student) pushDataLayer('admin_student_delete_clicked', studentAnalyticsPayload(student));
     const ok = await confirm({
       title: 'Delete record?',
       description:
@@ -290,6 +582,7 @@ export default function AdminStudents() {
   };
 
   const confirmSendPasswordReset = async (email: string) => {
+    if (selectedStudent) pushDataLayer('admin_student_password_reset_clicked', studentAnalyticsPayload(selectedStudent));
     const ok = await confirm({
       title: 'Send password reset link?',
       description: `Do you want to send a password reset link to ${email}?`,
@@ -307,6 +600,7 @@ export default function AdminStudents() {
   };
 
   const openAssignDialog = (student: Student) => {
+    pushDataLayer('admin_student_assign_clicked', studentAnalyticsPayload(student));
     setAssignForm({
       centerId: (student.training_centers as { id?: string } | null)?.id ?? '',
       discipline: student.preferred_discipline ?? '',
@@ -342,8 +636,7 @@ export default function AdminStudents() {
     }
   };
 
-  const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const formatDate = (d: string | null) => displayDate(d);
 
   const formatDiscipline = (d: string | null) =>
     d
@@ -351,7 +644,7 @@ export default function AdminStudents() {
         .split('_')
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ')
-      : '—';
+      : 'Not provided';
 
   const getDisciplineMeta = (value: string | null) => {
     if (!value) return null;
@@ -450,21 +743,11 @@ export default function AdminStudents() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {paginatedStudents.map((s) => {
               const isValidatingRow = validatingId === s.id;
-              const centerName = (s.training_centers as { name?: string } | null)?.name ?? '—';
+              const centerName = (s.training_centers as { name?: string } | null)?.name ?? 'Not provided';
               return (
                 <div key={s.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4">
                   <div className="flex items-start gap-3">
-                    <div className="size-14 rounded-full bg-slate-100 overflow-hidden shrink-0">
-                      <AspectRatio ratio={1 / 1}>
-                        {s.profile_photo_url ? (
-                          <img src={s.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-400">
-                            <Users className="size-6" />
-                          </div>
-                        )}
-                      </AspectRatio>
-                    </div>
+                    <SafeAvatar student={s} className="size-14 rounded-full text-sm" />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-slate-900 truncate">{s.full_name}</p>
                       <p className="text-sm text-slate-500 truncate">{s.email}</p>
@@ -495,7 +778,7 @@ export default function AdminStudents() {
 
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
-                      onClick={() => setSelectedStudentId(s.id)}
+                      onClick={() => openStudentDetails(s)}
                       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50"
                     >
                       <Eye className="size-3.5" />
@@ -602,7 +885,7 @@ export default function AdminStudents() {
                       onChange={(e) => setAssignForm((f) => ({ ...f, centerId: e.target.value }))}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-[var(--admin-primary)] focus:outline-none"
                     >
-                      <option value="">— No center assigned —</option>
+                      <option value="">No center assigned</option>
                       {trainingCenters.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
@@ -617,7 +900,7 @@ export default function AdminStudents() {
                       onChange={(e) => setAssignForm((f) => ({ ...f, discipline: e.target.value }))}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-[var(--admin-primary)] focus:outline-none"
                     >
-                      <option value="">— No discipline assigned —</option>
+                      <option value="">No discipline assigned</option>
                       {disciplineOptions.map((d) => (
                         <option key={d.value} value={d.value}>{d.label}</option>
                       ))}
@@ -654,38 +937,35 @@ export default function AdminStudents() {
 
           {selectedStudent && (
             <div
-              className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm p-2 sm:p-4 md:p-6 flex items-end sm:items-center justify-center overflow-y-auto overscroll-contain"
+              className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-900/60 p-0 backdrop-blur-sm sm:items-center sm:p-4 md:p-6"
               onClick={() => {
                 setSelectedStudentId(null);
                 setEditingId(null);
               }}
             >
               <div
-                className="w-full max-w-5xl bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col"
+                className="flex max-h-[100dvh] w-full max-w-6xl flex-col overflow-hidden rounded-none border border-slate-200 bg-slate-50 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="sticky top-0 z-10 px-4 sm:px-6 py-4 border-b border-slate-200 bg-white/95 backdrop-blur">
+                <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-6 sm:py-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="size-11 rounded-xl bg-slate-100 overflow-hidden shrink-0">
-                        <AspectRatio ratio={1 / 1}>
-                          {selectedStudent.profile_photo_url ? (
-                            <img src={selectedStudent.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-400">
-                              <Users className="size-5" />
-                            </div>
-                          )}
-                        </AspectRatio>
-                      </div>
-                      <div className="min-w-0">
-                        <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                          {selectedStudent.full_name?.trim() || selectedStudent.email || selectedStudent.phone || 'Unnamed Student'}
-                        </h2>
-                        <p className="text-xs sm:text-sm text-slate-500 truncate">
-                          {selectedStudent.full_name?.trim() ? selectedStudent.email : 'Name missing in student record'}
-                        </p>
-                        <div className="mt-1">{renderStatusBadge(selectedStudent.status)}</div>
+                    <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
+                      <SafeAvatar student={selectedStudent} className="size-14 rounded-2xl text-sm sm:size-20 sm:text-xl" />
+                      <div className="min-w-0 pt-0.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <h2 className="max-w-full break-words text-base font-black text-slate-950 sm:text-2xl">
+                            {safeText(selectedStudent.full_name, selectedStudent.email || selectedStudent.phone || 'Unnamed Student')}
+                          </h2>
+                          {renderStatusBadge(selectedStudent.status)}
+                        </div>
+                        <div className="mt-1.5 flex min-w-0 flex-col gap-1 text-[11px] font-medium text-slate-500 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:text-xs">
+                          <span className="flex min-w-0 items-center gap-1.5"><Mail className="size-3.5 shrink-0" /><span className="truncate">{safeText(selectedStudent.email)}</span></span>
+                          <span className="flex items-center gap-1.5"><Phone className="size-3.5 shrink-0" />{safeText(selectedStudent.phone)}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {selectedStudent.registration_id ? <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[9px] font-bold text-slate-600 sm:text-[10px]">Reg. ID&nbsp; {selectedStudent.registration_id}</span> : null}
+                          {selectedStudent.enrollment_id ? <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[9px] font-bold text-slate-600 sm:text-[10px]">Enrollment ID&nbsp; {selectedStudent.enrollment_id}</span> : null}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -701,7 +981,7 @@ export default function AdminStudents() {
                   </div>
                 </div>
 
-                <div className="px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto">
+                <div className="min-h-0 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
                   {editingId === selectedStudent.id ? (
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                       <div className="space-y-1">
@@ -778,11 +1058,11 @@ export default function AdminStudents() {
                         <div className="grid sm:grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="text-slate-500 text-[10px] font-bold uppercase mb-0.5">Assigned Instructor</p>
-                            <p className="font-medium text-slate-700">{selectedStudent.instructor_name || '—'}</p>
+                            <p className="font-medium text-slate-700">{safeText(selectedStudent.instructor_name)}</p>
                           </div>
                           <div>
                             <p className="text-slate-500 text-[10px] font-bold uppercase mb-0.5">Center location</p>
-                            <p className="font-medium text-slate-700">{(selectedStudent.training_centers as { name?: string })?.name ?? '—'}</p>
+                            <p className="font-medium text-slate-700">{safeText((selectedStudent.training_centers as { name?: string })?.name)}</p>
                           </div>
                         </div>
                       </div>
@@ -796,79 +1076,14 @@ export default function AdminStudents() {
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Phone</p><p className="font-semibold text-slate-900">{selectedStudent.phone || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Date of Birth</p><p className="font-semibold text-slate-900">{formatDate(selectedStudent.date_of_birth)}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Gender</p><p className="font-semibold text-slate-900 capitalize">{selectedStudent.gender || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Blood Group</p><p className="font-semibold text-slate-900">{selectedStudent.blood_group || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Emergency Contact</p><p className="font-semibold text-slate-900">{selectedStudent.emergency_contact || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Discipline</p>
-                          <div className="flex items-center gap-2">
-                            {(() => {
-                              const discipline = getDisciplineMeta(selectedStudent.preferred_discipline);
-                              if (discipline?.imageUrl || discipline?.image_url) {
-                                return (
-                                  <img
-                                    src={discipline.imageUrl || discipline.image_url || ''}
-                                    alt={discipline.label}
-                                    className="size-6 rounded-md object-cover border border-slate-200"
-                                  />
-                                );
-                              }
-                              return null;
-                            })()}
-                            <p className="font-semibold text-slate-900">
-                              {getDisciplineMeta(selectedStudent.preferred_discipline)?.label || formatDiscipline(selectedStudent.preferred_discipline)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Center location (super admin)</p><p className="font-semibold text-slate-900">{(selectedStudent.training_centers as { name?: string })?.name ?? '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Parent/Guardian</p><p className="font-semibold text-slate-900">{selectedStudent.parent_guardian_name || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Aadhar Number</p><p className="font-semibold text-slate-900">{selectedStudent.aadhar_number || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Qualification (Class)</p><p className="font-semibold text-slate-900">{selectedStudent.qualification || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Belt / Grade</p><p className="font-semibold text-slate-900">{formatBeltGrade(selectedStudent.belt_grade)}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:col-span-2"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Address</p><p className="font-semibold text-slate-900">{selectedStudent.address && `${selectedStudent.address}, `}{selectedStudent.locality && `${selectedStudent.locality}, `}{selectedStudent.city && `${selectedStudent.city}, `}{selectedStudent.state && `${selectedStudent.state} `}{selectedStudent.pincode && `- ${selectedStudent.pincode}`}{!selectedStudent.address && '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Assigned Instructor (super admin)</p><p className="font-semibold text-slate-900">{selectedStudent.instructor_name || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Institution</p><p className="font-semibold text-slate-900">{selectedStudent.school_college_name || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Marketing Opt-in</p><p className="font-semibold text-slate-900">{selectedStudent.marketing_opt_in ? 'Yes' : 'No'}</p></div>
-
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Registration ID</p><p className="font-semibold text-slate-900">{selectedStudent.registration_id || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Enrollment ID</p><p className="font-semibold text-slate-900">{selectedStudent.enrollment_id || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Training Center Name</p><p className="font-semibold text-slate-900">{selectedStudent.training_center_name || (selectedStudent.training_centers as { name?: string })?.name || '—'}</p></div>
-
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Current Belt</p><p className="font-semibold text-slate-900">{selectedStudent.current_belt || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Current Rank</p><p className="font-semibold text-slate-900">{selectedStudent.current_rank_label || '—'}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Stripe Level</p><p className="font-semibold text-slate-900">{selectedStudent.current_stripe_level ?? '—'}</p></div>
-
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Next Grading Date</p><p className="font-semibold text-slate-900">{formatDate(selectedStudent.next_grading_date)}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Terms Accepted</p><p className="font-semibold text-slate-900">{formatDate(selectedStudent.terms_accepted_at)}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Validated At</p><p className="font-semibold text-slate-900">{formatDate(selectedStudent.validated_at)}</p></div>
-
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Registered On</p><p className="font-semibold text-slate-900">{formatDate(selectedStudent.created_at)}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Last Updated</p><p className="font-semibold text-slate-900">{formatDate(selectedStudent.updated_at)}</p></div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">School/College Location</p><p className="font-semibold text-slate-900">{[selectedStudent.school_college_location_city, selectedStudent.school_college_location_state, selectedStudent.school_college_location_pin].filter(Boolean).join(', ') || '—'}</p></div>
-                      </div>
-
-                        <div className="sticky bottom-0 mt-6 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-white/95 backdrop-blur border-t border-slate-200">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                          <button onClick={() => startEditing(selectedStudent)} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-800 transition-all shadow-sm"><Edit className="size-3.5" />Edit Record</button>
-                          <button onClick={() => openAssignDialog(selectedStudent)} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-violet-50 text-violet-700 rounded-xl text-xs sm:text-sm font-bold hover:bg-violet-100 transition-all border border-violet-200"><MapPin className="size-3.5" />Assign</button>
-                          <button onClick={() => void confirmSendPasswordReset(selectedStudent.email)} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-blue-50 text-blue-700 rounded-xl text-xs sm:text-sm font-bold hover:bg-blue-100 transition-all"><Key className="size-3.5" />Password Reset</button>
-                          <button onClick={() => void deleteStudent(selectedStudent.id)} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-red-50 text-red-700 rounded-xl text-xs sm:text-sm font-bold hover:bg-red-100 transition-all"><Trash2 className="size-3.5" />Delete</button>
-                          {selectedStudent.profile_photo_url && (
-                            <a href={selectedStudent.profile_photo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-50 transition-all"><ExternalLink className="size-3.5" />View Photo</a>
-                          )}
-                          <div className="sm:ml-auto w-full sm:w-auto">
-                            <Link to={`/admin/fees?studentId=${encodeURIComponent(selectedStudent.id)}&studentName=${encodeURIComponent(selectedStudent.full_name)}`} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm border border-emerald-700/20 transition-all">
-                              <HandCoins className="size-3.5" />
-                              Raise Fee Request
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    </>
+                    <StudentDetailsReadOnly
+                      student={selectedStudent}
+                      discipline={getDisciplineMeta(selectedStudent.preferred_discipline)}
+                      onEdit={() => startEditing(selectedStudent)}
+                      onAssign={() => openAssignDialog(selectedStudent)}
+                      onReset={() => void confirmSendPasswordReset(selectedStudent.email)}
+                      onDelete={() => void deleteStudent(selectedStudent.id)}
+                    />
                   )}
                 </div>
               </div>
