@@ -158,11 +158,12 @@ model RefreshToken {
 // Admin flag
 // ----------------------------------------
 model AdminUser {
-  id          String   @id @default(uuid()) @db.Char(36)
-  userId      String   @unique @map("user_id") @db.Char(36)
-  email       String   @db.VarChar(255)
-  displayName String?  @map("display_name") @db.VarChar(255)
-  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  id          String    @id @default(uuid()) @db.Char(36)
+  userId      String    @unique @map("user_id") @db.Char(36)
+  email       String    @db.VarChar(255)
+  displayName String?   @map("display_name") @db.VarChar(255)
+  lastSeenAt  DateTime? @map("last_seen_at") @db.DateTime(0)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(0)
 
   user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignedChatThreads ChatThread[]
@@ -563,26 +564,34 @@ model ChatThread {
 }
 
 model ChatMessage {
-  id            String          @id @default(uuid()) @db.Char(36)
-  threadId      String          @map("thread_id") @db.Char(36)
-  senderType    ChatSenderType  @map("sender_type")
-  senderUserId  String?         @map("sender_user_id") @db.Char(36)
-  senderAdminId String?         @map("sender_admin_id") @db.Char(36)
-  messageType   ChatMessageType @default(TEXT) @map("message_type")
-  messageText   String?         @map("message_text") @db.Text
-  metadataJson  Json?           @map("metadata_json")
-  isInternal    Boolean         @default(false) @map("is_internal")
-  isRead        Boolean         @default(false) @map("is_read")
-  createdAt     DateTime        @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt     DateTime        @updatedAt @map("updated_at") @db.DateTime(0)
+  id                     String          @id @default(uuid()) @db.Char(36)
+  threadId               String          @map("thread_id") @db.Char(36)
+  senderType             ChatSenderType  @map("sender_type")
+  senderUserId           String?         @map("sender_user_id") @db.Char(36)
+  senderAdminId          String?         @map("sender_admin_id") @db.Char(36)
+  messageType            ChatMessageType @default(TEXT) @map("message_type")
+  messageText            String?         @map("message_text") @db.Text
+  metadataJson           Json?           @map("metadata_json")
+  replyToMessageId       String?         @map("reply_to_message_id") @db.Char(36)
+  forwardedFromMessageId String?         @map("forwarded_from_message_id") @db.Char(36)
+  isInternal             Boolean         @default(false) @map("is_internal")
+  isRead                 Boolean         @default(false) @map("is_read")
+  createdAt              DateTime        @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt              DateTime        @updatedAt @map("updated_at") @db.DateTime(0)
 
-  thread      ChatThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  senderUser  User?            @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
-  senderAdmin AdminUser?       @relation(fields: [senderAdminId], references: [id], onDelete: SetNull)
-  attachments ChatAttachment[]
+  thread               ChatThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderUser           User?            @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderAdmin          AdminUser?       @relation(fields: [senderAdminId], references: [id], onDelete: SetNull)
+  replyToMessage       ChatMessage?     @relation("MessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies              ChatMessage[]    @relation("MessageReply")
+  forwardedFromMessage ChatMessage?     @relation("MessageForward", fields: [forwardedFromMessageId], references: [id], onDelete: SetNull)
+  forwards             ChatMessage[]    @relation("MessageForward")
+  attachments          ChatAttachment[]
 
   @@index([threadId, createdAt])
   @@index([senderAdminId])
+  @@index([replyToMessageId])
+  @@index([forwardedFromMessageId])
   @@map("chat_messages")
 }
 

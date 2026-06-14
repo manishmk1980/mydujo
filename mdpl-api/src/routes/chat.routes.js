@@ -39,13 +39,22 @@ const tokenFrom = (req) => clean(req.headers["x-chat-token"] || req.body?.public
 const messageText = (value) => clean(value, maxMessageLength);
 const publicUrl = (storagePath) => `${process.env.API_BASE_URL || "http://localhost:4000"}/uploads/chat/${storagePath.replace(/\\/g, "/")}`;
 
+const ONLINE_MS = 2 * 60 * 1000;
+const AWAY_MS = 10 * 60 * 1000;
+
 const attachmentDto = (a) => ({
   id: a.id, message_id: a.messageId, file_name: a.fileName, file_url: a.fileUrl,
   file_mime_type: a.fileMimeType, file_size: a.fileSize, file_category: a.fileCategory, created_at: a.createdAt,
 });
+const replyPreviewDto = (m) => m ? {
+  id: m.id, sender_type: m.senderType, message_type: m.messageType,
+  message_text: m.messageText, is_internal: m.isInternal, created_at: m.createdAt,
+} : null;
 const messageDto = (m) => ({
   id: m.id, thread_id: m.threadId, sender_type: m.senderType, sender_admin_id: m.senderAdminId,
   message_type: m.messageType, message_text: m.messageText, metadata_json: m.metadataJson,
+  reply_to_message_id: m.replyToMessageId, forwarded_from_message_id: m.forwardedFromMessageId,
+  reply_to: replyPreviewDto(m.replyToMessage), forwarded_from: replyPreviewDto(m.forwardedFromMessage),
   is_internal: m.isInternal, is_read: m.isRead, created_at: m.createdAt,
   attachments: (m.attachments || []).map(attachmentDto),
 });
@@ -59,7 +68,32 @@ const threadDto = (t, includeToken = false) => ({
   bot_enabled: t.botEnabled, bot_handoff_required: t.botHandoffRequired,
   last_message_at: t.lastMessageAt, created_at: t.createdAt, updated_at: t.updatedAt, closed_at: t.closedAt,
 });
-const messageInclude = { attachments: true };
+const messageInclude = {
+  attachments: true,
+  replyToMessage: { select: { id: true, senderType: true, messageType: true, messageText: true, isInternal: true, createdAt: true } },
+  forwardedFromMessage: { select: { id: true, senderType: true, messageType: true, messageText: true, isInternal: true, createdAt: true } },
+};
+
+function presenceFromLastSeen(lastSeenAt) {
+  if (!lastSeenAt) return "offline";
+  const age = Date.now() - new Date(lastSeenAt).getTime();
+  if (age <= ONLINE_MS) return "online";
+  if (age <= AWAY_MS) return "away";
+  return "offline";
+}
+
+async function latestAdminPresence() {
+  const admins = await prisma.adminUser.findMany({ select: { id: true, displayName: true, email: true, lastSeenAt: true } });
+  const active = admins.filter((a) => a.lastSeenAt).sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+  const latest = active[0] || null;
+  const status = presenceFromLastSeen(latest?.lastSeenAt);
+  return {
+    status,
+    last_seen_at: latest?.lastSeenAt || null,
+    active_admin: latest ? { id: latest.id, display_name: latest.displayName, email: latest.email } : null,
+    online_count: admins.filter((a) => presenceFromLastSeen(a.lastSeenAt) === "online").length,
+  };
+}
 
 async function publicThread(req, res) {
   const token = tokenFrom(req);
@@ -77,6 +111,15 @@ async function publicThread(req, res) {
 
 async function currentAdmin(userId) {
   return prisma.adminUser.findUnique({ where: { userId } });
+}
+
+async function validateReplyToMessage(threadId, replyToMessageId, { allowInternal = false } = {}) {
+  if (!replyToMessageId) return null;
+  const replyTo = await prisma.chatMessage.findFirst({
+    where: { id: replyToMessageId, threadId, ...(allowInternal ? {} : { isInternal: false }) },
+  });
+  if (!replyTo) throw new Error("Invalid reply target");
+  return replyTo;
 }
 
 function parseUpload(body) {
@@ -121,6 +164,16 @@ async function saveAttachment(thread, body, senderType, senderAdminId = null) {
   });
 }
 
+router.get("/public/presence", async (_req, res) => {
+  try {
+    const presence = await latestAdminPresence();
+    return res.json(presence);
+  } catch (err) {
+    console.error("GET /chat/public/presence error:", err);
+    return res.status(500).json({ error: "Unable to load presence" });
+  }
+});
+
 router.post("/public/threads", async (req, res) => {
   try {
     const name = clean(req.body?.visitor_name);
@@ -163,8 +216,11 @@ router.post("/public/threads", async (req, res) => {
 router.get("/public/threads/:threadId", async (req, res) => {
   const thread = await publicThread(req, res);
   if (!thread) return;
-  const messages = await prisma.chatMessage.findMany({ where: { threadId: thread.id, isInternal: false }, include: messageInclude, orderBy: { createdAt: "asc" } });
-  return res.json({ thread: threadDto(thread), messages: messages.map(messageDto) });
+  const [messages, presence] = await Promise.all([
+    prisma.chatMessage.findMany({ where: { threadId: thread.id, isInternal: false }, include: messageInclude, orderBy: { createdAt: "asc" } }),
+    latestAdminPresence(),
+  ]);
+  return res.json({ thread: threadDto(thread), messages: messages.map(messageDto), presence });
 });
 
 router.post("/public/threads/:threadId/messages", async (req, res) => {
@@ -172,12 +228,22 @@ router.post("/public/threads/:threadId/messages", async (req, res) => {
   if (!thread) return;
   const type = String(req.body?.message_type || "TEXT").toUpperCase();
   const text = messageText(req.body?.message_text);
+  const replyToMessageId = clean(req.body?.reply_to_message_id, 36);
   if (!publicMessageTypes.has(type) || !text) return res.status(400).json({ error: "A valid text or URL message is required" });
   if (type === "URL") {
     try { new URL(text); } catch { return res.status(400).json({ error: "Invalid URL" }); }
   }
+  try {
+    if (replyToMessageId) await validateReplyToMessage(thread.id, replyToMessageId);
+  } catch (err) {
+    return res.status(400).json({ error: err.message || "Invalid reply target" });
+  }
   const message = await prisma.chatMessage.create({
-    data: { threadId: thread.id, senderType: "VISITOR", messageType: type, messageText: text, metadataJson: req.body?.metadata_json || undefined },
+    data: {
+      threadId: thread.id, senderType: "VISITOR", messageType: type, messageText: text,
+      metadataJson: req.body?.metadata_json || undefined,
+      replyToMessageId: replyToMessageId || undefined,
+    },
     include: messageInclude,
   });
   await prisma.chatThread.update({ where: { id: thread.id }, data: { status: "WAITING_FOR_ADMIN", lastMessageAt: new Date() } });
@@ -203,6 +269,28 @@ router.post("/public/threads/:threadId/handoff", async (req, res) => {
     prisma.chatMessage.create({ data: { threadId: thread.id, senderType: "BOT", messageType: "BOT_HANDOFF", messageText: "A member of the MDPL team has been requested.", isRead: true } }),
   ]);
   return res.json({ ok: true });
+});
+
+router.post("/admin/presence", ...requireAdmin, async (req, res) => {
+  try {
+    const admin = await currentAdmin(req.auth.userId);
+    if (!admin) return res.status(404).json({ error: "Admin not found" });
+    const updated = await prisma.adminUser.update({ where: { id: admin.id }, data: { lastSeenAt: new Date() } });
+    return res.json({ ok: true, last_seen_at: updated.lastSeenAt, status: "online" });
+  } catch (err) {
+    console.error("POST /chat/admin/presence error:", err);
+    return res.status(500).json({ error: "Unable to update presence" });
+  }
+});
+
+router.get("/admin/presence", ...requireAdmin, async (_req, res) => {
+  try {
+    const presence = await latestAdminPresence();
+    return res.json(presence);
+  } catch (err) {
+    console.error("GET /chat/admin/presence error:", err);
+    return res.status(500).json({ error: "Unable to load presence" });
+  }
 });
 
 router.get("/admin/threads", ...requireAdmin, async (req, res) => {
@@ -237,7 +325,8 @@ router.get("/admin/threads/:threadId", ...requireAdmin, async (req, res) => {
   if (!thread) return res.status(404).json({ error: "Chat thread not found" });
   await prisma.chatMessage.updateMany({ where: { threadId: thread.id, senderType: { not: "ADMIN" } }, data: { isRead: true } });
   const messages = await prisma.chatMessage.findMany({ where: { threadId: thread.id }, include: messageInclude, orderBy: { createdAt: "asc" } });
-  return res.json({ thread: threadDto(thread), messages: messages.map(messageDto) });
+  const presence = await latestAdminPresence();
+  return res.json({ thread: threadDto(thread), messages: messages.map(messageDto), presence });
 });
 
 router.post("/admin/threads/:threadId/messages", ...requireAdmin, async (req, res) => {
@@ -245,13 +334,56 @@ router.post("/admin/threads/:threadId/messages", ...requireAdmin, async (req, re
   const admin = await currentAdmin(req.auth.userId);
   const text = messageText(req.body?.message_text);
   const type = publicMessageTypes.has(String(req.body?.message_type || "TEXT").toUpperCase()) ? String(req.body?.message_type || "TEXT").toUpperCase() : "TEXT";
+  const replyToMessageId = clean(req.body?.reply_to_message_id, 36);
   if (!thread || !admin || !text) return res.status(400).json({ error: "Valid thread, admin, and message are required" });
   const internal = Boolean(req.body?.is_internal);
+  try {
+    if (replyToMessageId) await validateReplyToMessage(thread.id, replyToMessageId, { allowInternal: true });
+  } catch (err) {
+    return res.status(400).json({ error: err.message || "Invalid reply target" });
+  }
   const message = await prisma.chatMessage.create({
-    data: { threadId: thread.id, senderType: "ADMIN", senderAdminId: admin.id, messageType: type, messageText: text, metadataJson: req.body?.metadata_json || undefined, isInternal: internal, isRead: true },
+    data: {
+      threadId: thread.id, senderType: "ADMIN", senderAdminId: admin.id, messageType: type, messageText: text,
+      metadataJson: req.body?.metadata_json || undefined, isInternal: internal, isRead: true,
+      replyToMessageId: replyToMessageId || undefined,
+    },
     include: messageInclude,
   });
   await prisma.chatThread.update({ where: { id: thread.id }, data: { status: internal ? thread.status : "WAITING_FOR_VISITOR", lastMessageAt: new Date() } });
+  return res.status(201).json({ message: messageDto(message) });
+});
+
+router.post("/admin/threads/:threadId/forward", ...requireAdmin, async (req, res) => {
+  const admin = await currentAdmin(req.auth.userId);
+  const sourceMessageId = clean(req.body?.source_message_id, 36);
+  const targetThreadId = clean(req.body?.target_thread_id, 36);
+  const asInternalNote = Boolean(req.body?.as_internal_note);
+  if (!admin || !sourceMessageId) return res.status(400).json({ error: "source_message_id is required" });
+
+  const source = await prisma.chatMessage.findUnique({ where: { id: sourceMessageId }, include: { thread: true } });
+  if (!source) return res.status(404).json({ error: "Source message not found" });
+
+  const destinationThreadId = targetThreadId || req.params.threadId;
+  const destination = await prisma.chatThread.findUnique({ where: { id: destinationThreadId } });
+  if (!destination) return res.status(404).json({ error: "Destination thread not found" });
+
+  const forwardedText = `[Forwarded from ${source.thread.visitorName || "conversation"}]\n${source.messageText || "(attachment)"}`;
+  const message = await prisma.chatMessage.create({
+    data: {
+      threadId: destination.id,
+      senderType: "ADMIN",
+      senderAdminId: admin.id,
+      messageType: "TEXT",
+      messageText: forwardedText,
+      forwardedFromMessageId: source.id,
+      isInternal: asInternalNote || destination.id !== source.threadId,
+      isRead: true,
+      metadataJson: { forwarded: true, source_thread_id: source.threadId },
+    },
+    include: messageInclude,
+  });
+  await prisma.chatThread.update({ where: { id: destination.id }, data: { lastMessageAt: new Date() } });
   return res.status(201).json({ message: messageDto(message) });
 });
 
@@ -289,7 +421,7 @@ router.patch("/admin/threads/:threadId/status", ...requireAdmin, async (req, res
 
 router.get("/admin/admins", ...requireAdmin, async (_req, res) => {
   const admins = await prisma.adminUser.findMany({ orderBy: { email: "asc" } });
-  return res.json({ admins: admins.map((a) => ({ id: a.id, display_name: a.displayName, email: a.email })) });
+  return res.json({ admins: admins.map((a) => ({ id: a.id, display_name: a.displayName, email: a.email, last_seen_at: a.lastSeenAt })) });
 });
 
 export default router;
