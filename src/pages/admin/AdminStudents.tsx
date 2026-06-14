@@ -851,7 +851,7 @@ export default function AdminStudents() {
                         <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">School/College Location</p><p className="font-semibold text-slate-900">{[selectedStudent.school_college_location_city, selectedStudent.school_college_location_state, selectedStudent.school_college_location_pin].filter(Boolean).join(', ') || '—'}</p></div>
                       </div>
 
-                        <div className="sticky bottom-0 mt-6 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-white/95 backdrop-blur border-t border-slate-200">
+                        <div className="sticky bottom-0 z-30 mt-4 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-3 bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-10px_24px_rgba(15,23,42,0.08)]">
                         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                           <button onClick={() => startEditing(selectedStudent)} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-800 transition-all shadow-sm"><Edit className="size-3.5" />Edit Record</button>
                           <button onClick={() => openAssignDialog(selectedStudent)} className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-violet-50 text-violet-700 rounded-xl text-xs sm:text-sm font-bold hover:bg-violet-100 transition-all border border-violet-200"><MapPin className="size-3.5" />Assign</button>

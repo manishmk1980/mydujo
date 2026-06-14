@@ -22,7 +22,7 @@ export function AdminProgressRadialChart({ registered, approved, activePortal }:
     <AdminWidgetCard title="Progress Overview" subtitle="Approval and readiness snapshot">
       <div className="relative flex flex-col items-center pt-2">
         <div className="h-[200px] w-full max-w-[260px]">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={240} minWidth={1}>
             <PieChart>
               <defs>
                 <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">

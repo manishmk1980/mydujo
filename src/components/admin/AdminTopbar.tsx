@@ -1,6 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Mail, Search } from 'lucide-react';
+import {useNavigate, useLocation } from 'react-router-dom';
+import { Bell, LogOut, Mail } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useAdminConfirm } from './ui/AdminConfirmProvider';
@@ -8,11 +8,84 @@ import { SidebarTrigger } from '../layout/CollapsibleSidebarShell';
 import emblemUrl from '@/assets/logo/logo-emblem.svg';
 
 function shortcutLabel(): string {
-  if (typeof navigator === 'undefined') return 'Ctrl K';
-  return /Mac|iPhone|iPod|iPad/i.test(navigator.platform) ? '⌘ K' : 'Ctrl K';
+  if (typeof navigator === 'undefined') return '';
+  return /Mac|iPhone|iPod|iPad/i.test(navigator.platform) ? '⌘ K' : '';
 }
 
 export function AdminTopbar() {
+  const { pathname } = useLocation();
+
+  const pageMeta = (() => {
+    if (pathname.includes('/admin/students')) {
+      return {
+        title: 'Student registrations',
+        subtitle: 'Manage and validate student registrations.',
+      };
+    }
+
+    if (pathname.includes('/admin/training-centers')) {
+      return {
+        title: 'Training centers',
+        subtitle: 'Manage centers, branches and local training operations.',
+      };
+    }
+
+    if (pathname.includes('/admin/instructors')) {
+      return {
+        title: 'Instructors',
+        subtitle: 'Manage instructor profiles and assignments.',
+      };
+    }
+
+    if (pathname.includes('/admin/applications')) {
+      return {
+        title: 'Applications',
+        subtitle: 'Review and manage submitted applications.',
+      };
+    }
+
+    if (pathname.includes('/admin/disciplines')) {
+      return {
+        title: 'Disciplines',
+        subtitle: 'Manage martial arts disciplines and program structure.',
+      };
+    }
+
+    if (pathname.includes('/admin/fee-requests') || pathname.includes('/admin/fees')) {
+      return {
+        title: 'Fee requests',
+        subtitle: 'Create, review and track student fee requests.',
+      };
+    }
+
+    if (pathname.includes('/admin/payment-review')) {
+      return {
+        title: 'Payment review',
+        subtitle: 'Review fee payments and transaction status.',
+      };
+    }
+
+    if (pathname.includes('/admin/users')) {
+      return {
+        title: 'Users',
+        subtitle: 'Manage admin users and access control.',
+      };
+    }
+
+    if (pathname.includes('/admin/settings')) {
+      return {
+        title: 'Settings',
+        subtitle: 'Manage platform configuration.',
+      };
+    }
+
+    return {
+      title: 'Dashboard',
+      subtitle: 'Monitor MDPL operations and key activity.',
+    };
+  })();
+
+
   const navigate = useNavigate();
   const { adminUser, logout } = useAdminAuth();
   const confirm = useAdminConfirm();
@@ -73,28 +146,10 @@ export function AdminTopbar() {
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <div className="relative max-w-xl min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input
-              type="search"
-              placeholder="Search admin records"
-              className={cn(
-                'w-full rounded-[var(--admin-radius-control)] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] py-2.5 pl-10 pr-20 text-sm text-[var(--admin-text)]',
-                'placeholder:text-[var(--admin-text-muted)] outline-none ring-0 focus:border-[var(--admin-primary)] focus:bg-[var(--admin-surface)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--admin-primary)_30%,transparent)]',
-                "font-['Space_Grotesk',sans-serif] font-medium tracking-tight"
-              )}
-              readOnly
-              aria-label="Search admin records (coming soon)"
-            />
-            <span
-              className={cn(
-                'absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-slate-200 bg-white px-2 py-0.5',
-                'text-[10px] font-semibold text-slate-500 tabular-nums',
-                "font-['Space_Grotesk',sans-serif]"
-              )}
-            >
-              {shortcutLabel()}
-            </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate font-['Space_Grotesk',sans-serif] text-xl font-extrabold leading-tight text-[var(--admin-text)] sm:text-2xl">
+              {pageMeta.title}
+            </h1>
           </div>
         </div>
 
