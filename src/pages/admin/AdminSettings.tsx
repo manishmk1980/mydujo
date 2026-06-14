@@ -1,6 +1,5 @@
 import React from 'react';
 import { Globe, Bell, Lock, Shield, ArrowRight } from 'lucide-react';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminCard } from '../../components/admin/ui/AdminCard';
 
 export default function AdminSettings() {
@@ -13,11 +12,6 @@ export default function AdminSettings() {
 
     return (
         <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <AdminPageHeader
-                title="Platform settings"
-                subtitle="Global configuration and platform-wide rules."
-            />
-
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
                 {sections.map((s, i) => (
                     <button

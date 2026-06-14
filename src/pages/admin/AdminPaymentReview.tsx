@@ -1,7 +1,6 @@
 import React from 'react';
 import { CircleHelp, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { AdminTableCard } from '../../components/admin/ui/AdminTableCard';
@@ -143,11 +142,6 @@ export default function AdminPaymentReview() {
 
   return (
     <PageContainer>
-      <AdminPageHeader
-        title="Payment Review"
-        subtitle="Review student payment submissions and verify, reject, or request more information."
-      />
-
       {error ? <AdminErrorState message={error} className="mb-4" /> : null}
 
       <AdminTableCard

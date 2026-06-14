@@ -22,7 +22,6 @@ function formatINRFromPaise(paise: number) {
   const rupees = paise / 100;
   return rupees.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
 }
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminStatCard } from '../../components/admin/dashboard/AdminStatCard';
 import { AdminWidgetCard } from '../../components/admin/dashboard/AdminWidgetCard';
@@ -229,11 +228,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-w-0 space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <AdminPageHeader
-        eyebrow="Overview"
-        title="Dashboard"
-        subtitle="Real-time performance metrics and academy overview"
-        actions={
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           <>
             <Link
               to="/admin/students"
@@ -244,8 +239,7 @@ export default function AdminDashboard() {
             </Link>
             <AdminImportMenu variant="dropdown" className="w-full min-w-0 sm:w-auto" />
           </>
-        }
-      />
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
         <AdminStatCard

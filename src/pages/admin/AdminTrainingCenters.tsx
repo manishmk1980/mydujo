@@ -9,7 +9,6 @@ import {
   MapPin, Plus, Loader2, RefreshCw, Search, Edit, Pause, Archive,
   CheckCircle2, MoreHorizontal, X, Users, UserCog,
 } from 'lucide-react';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
@@ -406,10 +405,7 @@ export default function AdminTrainingCenters() {
 
   return (
     <div className="min-w-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <AdminPageHeader
-        title="Training centers"
-        subtitle="Manage academy locations, assignments, and operational status."
-        actions={
+      <div className="flex justify-end">
           <div className="flex w-full gap-2 sm:w-auto">
             <button type="button" onClick={() => void load()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
               <RefreshCw className="size-4" />
@@ -418,8 +414,7 @@ export default function AdminTrainingCenters() {
               <Plus className="size-4" /> Add center
             </button>
           </div>
-        }
-      />
+      </div>
 
       {flash && (
         <div className={`rounded-2xl border p-4 text-sm font-medium ${flash.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>

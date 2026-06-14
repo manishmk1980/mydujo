@@ -13,7 +13,6 @@ import {
   X,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
@@ -393,11 +392,6 @@ export default function AdminFeeRequests() {
 
   return (
     <PageContainer>
-      <AdminPageHeader
-        title="Fee Requests"
-        subtitle="Create and manage fee requests for students."
-      />
-
       {error ? <AdminErrorState message={error} className="mb-4" /> : null}
 
       <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

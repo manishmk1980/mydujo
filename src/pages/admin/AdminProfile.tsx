@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { User, Mail, Shield, Award, Calendar, Lock, X, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { useAdminConfirm } from '../../components/admin/ui/AdminConfirmProvider';
 import { authService } from '../../services/authService';
 
@@ -202,11 +201,8 @@ export default function AdminProfile() {
 
     return (
         <div className="min-w-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <AdminPageHeader
-                title="Admin profile"
-                subtitle="Manage personal administrative identity and security."
-                actions={
-                    canManageSecurity ? (
+            {canManageSecurity ? (
+                <div className="flex justify-end">
                         <button
                             type="button"
                             onClick={openSecurityPanel}
@@ -215,9 +211,8 @@ export default function AdminProfile() {
                             <Shield className="size-5 shrink-0" />
                             Update security
                         </button>
-                    ) : null
-                }
-            />
+                </div>
+            ) : null}
 
             <div className="relative flex flex-col items-center overflow-hidden rounded-3xl border border-slate-200 bg-white px-4 py-6 text-center shadow-sm sm:px-6 sm:py-8">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-amber-50 rounded-full -mr-32 -mt-32 opacity-20"></div>

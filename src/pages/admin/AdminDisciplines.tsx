@@ -8,7 +8,6 @@ import {
   Sword, Plus, Loader2, Link as LinkIcon, X, Paperclip,
   RefreshCw, Search, MoreHorizontal, Edit, Archive, Pause, CheckCircle2,
 } from 'lucide-react';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
@@ -460,10 +459,7 @@ export default function AdminDisciplines() {
 
   return (
     <div className="min-w-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <AdminPageHeader
-        title="Disciplines"
-        subtitle="Manage martial arts styles shown in registration and assignment flows."
-        actions={
+      <div className="flex justify-end">
           <div className="flex w-full gap-2 sm:w-auto">
             <button type="button" onClick={() => void load()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
               <RefreshCw className="size-4" />
@@ -472,8 +468,7 @@ export default function AdminDisciplines() {
               <Plus className="size-4" /> Add discipline
             </button>
           </div>
-        }
-      />
+      </div>
 
       {flash && (
         <div className={`rounded-2xl border p-4 text-sm font-medium ${flash.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>

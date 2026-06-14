@@ -35,7 +35,6 @@ import { metaService, type DisciplineOption } from '../../services/metaService';
 
 import { studentService, DBStudent as Student } from '../../services/studentService';
 import { useAdminConfirm } from '../../components/admin/ui/AdminConfirmProvider';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
@@ -206,17 +205,9 @@ function MobileDetailAccordion({ sections }: { sections: DetailSection[] }) {
 function StudentDetailsReadOnly({
   student,
   discipline,
-  onEdit,
-  onAssign,
-  onReset,
-  onDelete,
 }: {
   student: Student;
   discipline: DisciplineOption | null;
-  onEdit: () => void;
-  onAssign: () => void;
-  onReset: () => void;
-  onDelete: () => void;
 }) {
   const photoUrl = normalizeMediaUrl(student.profile_photo_url);
   const disciplineImage = normalizeMediaUrl(discipline?.imageUrl || discipline?.image_url);
@@ -310,8 +301,6 @@ function StudentDetailsReadOnly({
     },
   ];
 
-  const actionClass = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition sm:px-4 sm:text-sm';
-
   return (
     <>
       <MobileDetailAccordion sections={sections} />
@@ -341,17 +330,31 @@ function StudentDetailsReadOnly({
         </aside>
       </div>
 
-      <div className="sticky bottom-0 z-20 -mx-3 mt-5 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-10px_24px_rgba(15,23,42,0.06)] backdrop-blur-md sm:-mx-6 sm:px-6">
-        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
-          <button onClick={onEdit} className={`${actionClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}><Edit className="size-3.5" /><span className="max-[360px]:hidden">Edit Record</span><span className="min-[361px]:hidden">Edit</span></button>
-          <button onClick={onAssign} className={`${actionClass} border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100`}><MapPin className="size-3.5" />Assign</button>
-          <button onClick={onReset} className={`${actionClass} border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100`}><Key className="size-3.5" /><span className="max-[360px]:hidden">Password Reset</span><span className="min-[361px]:hidden">Reset</span></button>
-          {photoUrl ? <a href={photoUrl} target="_blank" rel="noopener noreferrer" onClick={() => pushDataLayer('admin_student_photo_opened', payload)} className={`${actionClass} hidden border-slate-200 bg-white text-slate-700 hover:bg-slate-50 lg:inline-flex`}><ExternalLink className="size-3.5" />View Photo</a> : null}
-          <Link onClick={() => pushDataLayer('admin_student_fee_request_clicked', payload)} to={`/admin/fees?studentId=${encodeURIComponent(student.id)}&studentName=${encodeURIComponent(student.full_name)}`} className={`${actionClass} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 lg:ml-auto`}><HandCoins className="size-3.5" />Fee Request</Link>
-          <button onClick={onDelete} className={`${actionClass} col-span-2 mt-1 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 lg:col-span-1 lg:mt-0`}><Trash2 className="size-3.5" /><span className="max-[360px]:hidden">Delete Student</span><span className="min-[361px]:hidden">Delete</span></button>
-        </div>
-      </div>
     </>
+  );
+}
+
+function StudentDetailActions({ student, onEdit, onAssign, onReset, onDelete }: {
+  student: Student;
+  onEdit: () => void;
+  onAssign: () => void;
+  onReset: () => void;
+  onDelete: () => void;
+}) {
+  const actionClass = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition sm:px-4 sm:text-sm';
+  const payload = { student_id: student.id, action_source: 'admin_student_details' };
+  const photoUrl = normalizeMediaUrl(student.profile_photo_url);
+  return (
+    <div className="shrink-0 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-10px_24px_rgba(15,23,42,0.06)] backdrop-blur-md sm:px-6">
+      <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
+        <button onClick={onEdit} className={`${actionClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}><Edit className="size-3.5" /><span className="max-[360px]:hidden">Edit Record</span><span className="min-[361px]:hidden">Edit</span></button>
+        <button onClick={onAssign} className={`${actionClass} border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100`}><MapPin className="size-3.5" />Assign</button>
+        <button onClick={onReset} className={`${actionClass} border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100`}><Key className="size-3.5" /><span className="max-[360px]:hidden">Password Reset</span><span className="min-[361px]:hidden">Reset</span></button>
+        {photoUrl ? <a href={photoUrl} target="_blank" rel="noopener noreferrer" onClick={() => pushDataLayer('admin_student_photo_opened', payload)} className={`${actionClass} hidden border-slate-200 bg-white text-slate-700 hover:bg-slate-50 lg:inline-flex`}><ExternalLink className="size-3.5" />View Photo</a> : null}
+        <Link onClick={() => pushDataLayer('admin_student_fee_request_clicked', payload)} to={`/admin/fees?studentId=${encodeURIComponent(student.id)}&studentName=${encodeURIComponent(student.full_name)}`} className={`${actionClass} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 lg:ml-auto`}><HandCoins className="size-3.5" />Fee Request</Link>
+        <button onClick={onDelete} className={`${actionClass} col-span-2 mt-1 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 lg:col-span-1 lg:mt-0`}><Trash2 className="size-3.5" /><span className="max-[360px]:hidden">Delete Student</span><span className="min-[361px]:hidden">Delete</span></button>
+      </div>
+    </div>
   );
 }
 
@@ -673,11 +676,6 @@ export default function AdminStudents() {
         </div>
       )}
 
-      <AdminPageHeader
-        title="Student registrations"
-        subtitle="Manage and validate student registrations."
-      />
-
       {loading ? (
         <AdminLoadingState label="Loading students…" className="min-h-[40vh]" />
       ) : error ? (
@@ -981,7 +979,7 @@ export default function AdminStudents() {
                   </div>
                 </div>
 
-                <div className="min-h-0 overflow-x-hidden overflow-y-auto px-3 pb-40 pt-3 sm:px-6 sm:pb-40 sm:pt-5 lg:pb-28">
+                <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
                   {editingId === selectedStudent.id ? (
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                       <div className="space-y-1">
@@ -1079,13 +1077,18 @@ export default function AdminStudents() {
                     <StudentDetailsReadOnly
                       student={selectedStudent}
                       discipline={getDisciplineMeta(selectedStudent.preferred_discipline)}
-                      onEdit={() => startEditing(selectedStudent)}
-                      onAssign={() => openAssignDialog(selectedStudent)}
-                      onReset={() => void confirmSendPasswordReset(selectedStudent.email)}
-                      onDelete={() => void deleteStudent(selectedStudent.id)}
                     />
                   )}
                 </div>
+                {editingId !== selectedStudent.id ? (
+                  <StudentDetailActions
+                    student={selectedStudent}
+                    onEdit={() => startEditing(selectedStudent)}
+                    onAssign={() => openAssignDialog(selectedStudent)}
+                    onReset={() => void confirmSendPasswordReset(selectedStudent.email)}
+                    onDelete={() => void deleteStudent(selectedStudent.id)}
+                  />
+                ) : null}
               </div>
             </div>
           )}

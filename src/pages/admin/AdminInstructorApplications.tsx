@@ -30,7 +30,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminBadge } from '../../components/admin/ui/AdminBadge';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
@@ -701,10 +700,7 @@ export default function AdminInstructorApplications() {
 
   return (
     <PageContainer>
-      <AdminPageHeader
-        title="Instructor Applications"
-        subtitle="Review, approve, and assign incoming instructor applications."
-        actions={
+      <div className="mb-4 flex justify-end">
           <button
             type="button"
             onClick={() => void load()}
@@ -712,8 +708,7 @@ export default function AdminInstructorApplications() {
           >
             <RefreshCw className="size-4" /> Refresh
           </button>
-        }
-      />
+      </div>
 
       {/* Flash */}
       {flashMessage && (

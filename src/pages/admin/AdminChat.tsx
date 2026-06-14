@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, RefreshCw, Search } from 'lucide-react';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { ChatComposer } from '../../components/chat/ChatComposer';
 import { ChatMessageList } from '../../components/chat/ChatMessageList';
 import { pushDataLayer } from '../../lib/dataLayer';
@@ -73,9 +72,9 @@ export default function AdminChat() {
 
   return (
     <div className="min-w-0">
-      <AdminPageHeader title="Chat & enquiries" subtitle="Respond to public conversations, assign ownership, and manage handoffs." actions={
+      <div className="mb-4 flex justify-end">
         <button type="button" onClick={() => void loadThreads()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2 text-sm font-bold text-[var(--admin-text)]"><RefreshCw className="size-4" /> Refresh</button>
-      } />
+      </div>
       <div className="mb-4 flex flex-wrap gap-2">
         <button type="button" onClick={() => setFilter({ label: 'All' })} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter.label === 'All' ? 'bg-[var(--admin-primary)] text-white' : 'bg-[var(--admin-surface)] text-[var(--admin-text-muted)]'}`}>All</button>
         {filters.map((f) => <button key={f.label} type="button" onClick={() => setFilter(f)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter.label === f.label ? 'bg-[var(--admin-primary)] text-white' : 'bg-[var(--admin-surface)] text-[var(--admin-text-muted)]'}`}>{f.label}</button>)}

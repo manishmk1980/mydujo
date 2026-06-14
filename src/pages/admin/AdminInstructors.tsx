@@ -14,7 +14,6 @@ import {
   Users, Key, X, Search, ClipboardList, ExternalLink,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
@@ -446,10 +445,7 @@ export default function AdminInstructors() {
 
   return (
     <PageContainer>
-      <AdminPageHeader
-        title="Instructors"
-        subtitle="Create and manage instructor accounts, assignments, and applications."
-        actions={
+      <div className="mb-4 flex justify-end">
           <div className="flex w-full gap-2 sm:w-auto">
             <button type="button" onClick={() => void fetchAll()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
               <RefreshCw className="size-4" /> Refresh
@@ -458,8 +454,7 @@ export default function AdminInstructors() {
               <Plus className="size-4" /> Add instructor
             </button>
           </div>
-        }
-      />
+      </div>
 
       {/* Tabs */}
       <div className="flex border-b border-slate-200">

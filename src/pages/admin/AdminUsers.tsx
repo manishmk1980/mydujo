@@ -1,7 +1,6 @@
 import React from 'react';
 import { CheckCircle2, KeyRound, Loader2, Pencil, Plus, RefreshCw, Search, Shield, UserX, X } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
 import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
@@ -69,7 +68,7 @@ export default function AdminUsers() {
     try { await usersService.resetPassword(user.id, password); pushDataLayer('admin_user_password_reset', { user_id: user.id, role: user.roles[0] || 'NA', status: 'ACTIVE', action_source: 'admin_users' }); await load(); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to reset password'); }
   };
   return <PageContainer>
-    <AdminPageHeader title="Platform Users" subtitle="Create and manage secure admin access." actions={<button className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-4 py-2.5 text-sm font-bold text-white" onClick={() => setEditing(null)}><Plus className="size-4" />Create user</button>} />
+    <div className="mb-4 flex justify-end"><button className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-4 py-2.5 text-sm font-bold text-white" onClick={() => setEditing(null)}><Plus className="size-4" />Create user</button></div>
     <div className="mb-4 flex gap-2"><label className="relative flex-1"><Search className="absolute left-3 top-3 size-4 text-slate-400" /><input className={`${inputClass} pl-9`} placeholder="Search users" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="rounded-xl border px-3" onClick={() => void load()} aria-label="Refresh"><RefreshCw className="size-4" /></button></div>
     {error && <AdminErrorState message={error} className="mb-4" />}
     {loading ? <AdminLoadingState label="Loading users..." /> : filtered.length === 0 ? <AdminEmptyState title="No users found" description="Create an admin user or adjust your search." /> :
