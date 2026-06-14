@@ -1,166 +1,172 @@
-﻿import type { LucideIcon } from "lucide-react";
-import { GraduationCap, Shield, UserCog, UserPlus } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  GraduationCap,
+  ShieldCheck,
+  TrendingUp,
+  Trophy,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import { Link } from "react-router-dom";
 
 import PublicLayout from "../../components/public/PublicLayout";
-import PublicRoleCard, { type PublicRoleCardVariant } from "../../components/public/PublicRoleCard";
 
-type RoleCardDef = {
+type PathCardProps = {
+  icon: LucideIcon;
   title: string;
   description: string;
-  icon: LucideIcon;
-  href: string;
-  ctaLabel: string;
-  variant?: PublicRoleCardVariant;
-  badge?: string;
+  children: React.ReactNode;
+  featured?: boolean;
 };
 
-const signInCards: RoleCardDef[] = [
+const features: Array<{ icon: LucideIcon; title: string; description: string }> = [
   {
-    title: "Admin sign in",
-    description:
-      "For MDPL super admins and authorized admin users managing platform operations.",
-    icon: Shield,
-    href: "/admin/login",
-    ctaLabel: "Admin sign in",
+    icon: ShieldCheck,
+    title: "Trusted Platform",
+    description: "Secure, reliable, and built for the martial arts community.",
   },
   {
-    title: "Instructor sign in",
-    description:
-      "For instructors managing students, classes, attendance, academy activity, and training records.",
-    icon: UserCog,
-    href: "/instructor/login",
-    ctaLabel: "Instructor sign in",
+    icon: Users,
+    title: "For Everyone",
+    description: "Students, instructors, and academies — all in one powerful platform.",
   },
   {
-    title: "Student sign in",
-    description:
-      "For students accessing their profile, fee requests, attendance, events, and progression records.",
-    icon: GraduationCap,
-    href: "/student/login",
-    ctaLabel: "Student sign in",
+    icon: TrendingUp,
+    title: "Track & Grow",
+    description: "Track progress, attendance, and achievements with ease.",
+  },
+  {
+    icon: Trophy,
+    title: "Empowering Martial Artists",
+    description: "Connecting dojos and martial artists through one unified platform.",
   },
 ];
 
-const registerCards: RoleCardDef[] = [
-  {
-    title: "Student registration",
-    description:
-      "New students: create your academy enrollment profile and submit it for admin review.",
-    icon: UserPlus,
-    href: "/register/student",
-    ctaLabel: "Register as student",
-    variant: "primary",
-    badge: "Most popular",
-  },
-  {
-    title: "Instructor registration",
-    description:
-      "Apply to teach with MDPL MyDojo — a short public form to start the review process.",
-    icon: UserCog,
-    href: "/register/instructor",
-    ctaLabel: "Apply as instructor",
-    badge: "Application review",
-  },
-];
+const buttonBase =
+  "group/button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full px-5 text-center text-sm font-black transition duration-200";
+const primaryButton =
+  `${buttonBase} bg-orange-600 text-white shadow-lg shadow-orange-600/20 hover:bg-orange-700 hover:shadow-orange-600/30`;
+const secondaryButton =
+  `${buttonBase} border border-slate-300 bg-white/70 text-slate-950 hover:border-orange-500 hover:text-orange-600 dark:border-white/20 dark:bg-white/[0.04] dark:text-white dark:hover:border-orange-500 dark:hover:text-orange-400`;
+
+function PathCard({ icon: Icon, title, description, children, featured = false }: PathCardProps) {
+  return (
+    <article
+      className={[
+        "group relative flex min-w-0 flex-col rounded-[1.75rem] border bg-white/90 p-6 shadow-[0_18px_55px_rgba(15,23,42,0.08)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_65px_rgba(15,23,42,0.13)] dark:bg-white/[0.06] sm:p-7",
+        featured
+          ? "border-orange-300/80 ring-1 ring-orange-200/60 dark:border-orange-500/50 dark:ring-orange-500/20"
+          : "border-slate-200/80 dark:border-white/10",
+      ].join(" ")}
+    >
+      {featured ? (
+        <div className="absolute right-5 top-5 rounded-full bg-orange-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">
+          Start here
+        </div>
+      ) : null}
+
+      <div className="mb-5 flex size-16 items-center justify-center rounded-full bg-orange-50 text-orange-600 shadow-inner shadow-orange-100 transition duration-300 group-hover:scale-105 dark:bg-orange-500/15 dark:text-orange-400 dark:shadow-none">
+        <Icon size={30} strokeWidth={2.3} />
+      </div>
+
+      <h2 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">{title}</h2>
+      <p className="mt-3 min-h-[4.5rem] flex-1 text-sm font-semibold leading-6 text-slate-600 dark:text-white/70">
+        {description}
+      </p>
+
+      <div className="mt-6 space-y-3 border-t border-slate-200/80 pt-5 dark:border-white/10">{children}</div>
+    </article>
+  );
+}
+
+function CtaArrow() {
+  return <ArrowRight size={17} strokeWidth={2.8} className="shrink-0 transition group-hover/button:translate-x-1" />;
+}
 
 export default function JoinMyDojoPage() {
   return (
     <PublicLayout>
-      <section className="relative min-h-0 overflow-hidden px-4 pb-16 pt-6 sm:px-5 sm:pb-20 sm:pt-10 lg:min-h-[calc(100dvh-5.5rem)] lg:px-8 lg:pb-24 lg:pt-14">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(234,88,12,0.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(255,255,255,0.28),transparent_30%)] dark:bg-[radial-gradient(circle_at_15%_18%,rgba(234,88,12,0.26),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(255,255,255,0.06),transparent_30%)]" />
+      <section className="relative isolate overflow-hidden px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-12 lg:px-8 lg:pb-14 lg:pt-14">
+        <div className="pointer-events-none absolute inset-0 -z-20 bg-[linear-gradient(145deg,#fffaf5_0%,#ffffff_47%,#fff8f2_100%)] dark:bg-[linear-gradient(145deg,#0b101b_0%,#111827_52%,#15100d_100%)]" />
+        <div className="pointer-events-none absolute -left-32 top-10 -z-10 size-[26rem] rounded-full bg-orange-200/25 blur-3xl dark:bg-orange-600/10" />
+        <div className="pointer-events-none absolute -right-24 top-36 -z-10 size-[30rem] rounded-full border-[3rem] border-orange-100/40 dark:border-orange-500/[0.06]" />
+        <div className="pointer-events-none absolute left-8 top-20 -z-10 hidden h-72 w-24 -rotate-12 rounded-full border border-orange-300/20 lg:block" />
 
-        <div className="absolute inset-0 opacity-[0.12] dark:opacity-[0.2]">
-          <div className="absolute left-[46%] top-[12%] h-[42rem] w-[42rem] rounded-full border border-slate-950/10 dark:border-white/10" />
-          <div className="absolute left-[54%] top-[20%] h-[30rem] w-[30rem] rounded-full border border-slate-950/10 dark:border-white/10" />
-        </div>
-
-        <div className="pointer-events-none absolute right-6 top-20 hidden select-none text-[14vw] font-black uppercase leading-none text-slate-900/[0.045] dark:text-white/[0.05] lg:block">
-          MDPL
-        </div>
-
-        <div className="relative z-10 mx-auto flex w-full min-w-0 max-w-7xl flex-col justify-center lg:py-6">
-          <div className="grid w-full min-w-0 grid-cols-1 gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:gap-14">
-            <div className="min-w-0">
-              <div className="mb-5 inline-flex max-w-full flex-wrap items-center gap-3 rounded-full border border-slate-300/80 bg-white/70 px-4 py-2 text-[10px] font-black uppercase leading-snug tracking-[0.22em] text-orange-600 shadow-sm backdrop-blur-xl dark:border-white/15 dark:bg-white/10 sm:mb-6 sm:text-xs sm:tracking-[0.28em]">
-                <span className="h-px w-8 bg-orange-600" />
-                Join MyDojo
-              </div>
-
-              <h1 className="mydojo-display min-w-0 max-w-full break-words text-[clamp(2rem,10vw,5rem)] font-black italic leading-[0.95] tracking-tight text-slate-950 dark:text-white sm:text-[clamp(2.4rem,9vw,5.25rem)]">
-                Start your
-                <span className="block text-orange-600">martial arts</span>
-                journey
-              </h1>
-
-              <p className="mt-6 max-w-xl break-words text-base font-bold leading-8 text-slate-700 dark:text-white/80 sm:mt-7 sm:text-lg">
-                Choose the path that matches your role — sign in or register as a student, instructor, or admin.
-              </p>
-
-              <div className="mt-8 hidden gap-5 lg:grid lg:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.05]">
-                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-600">
-                    Existing user
-                  </div>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700 dark:text-white/75">
-                    Already have an account? Pick your portal and sign in.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-5 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.05]">
-                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-600">
-                    New to MyDojo
-                  </div>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700 dark:text-white/75">
-                    Register as a student or apply as an instructor for review.
-                  </p>
-                </div>
-              </div>
+        <div className="mx-auto w-full max-w-7xl">
+          <header className="mx-auto max-w-4xl text-center">
+            <div className="inline-flex items-center gap-3 rounded-full border border-orange-200 bg-white/80 px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em] text-orange-600 shadow-sm backdrop-blur dark:border-orange-500/25 dark:bg-white/[0.06] dark:text-orange-400 sm:text-xs">
+              <span className="h-px w-7 bg-orange-500" />
+              Join MyDojo
+              <span className="h-px w-7 bg-orange-500" />
             </div>
 
-            <div className="grid min-w-0 grid-cols-1 gap-6">
-              <div>
-                <div className="mb-3 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.28em] text-slate-600 dark:text-white/70 sm:text-xs sm:tracking-[0.32em]">
-                  <span className="h-px w-8 bg-slate-400 dark:bg-white/30" />
-                  Sign in
-                </div>
+            <h1 className="mt-5 text-[clamp(2.6rem,7vw,5.2rem)] font-black leading-[0.98] tracking-[-0.06em] text-slate-950 dark:text-white">
+              Join <span className="text-orange-600 dark:text-orange-500">MDPL MyDojo</span>
+            </h1>
 
-                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
-                  {signInCards.map((card) => (
-                    <PublicRoleCard
-                      key={card.href}
-                      title={card.title}
-                      description={card.description}
-                      icon={card.icon}
-                      href={card.href}
-                      ctaLabel={card.ctaLabel}
-                      variant={card.variant}
-                      badge={card.badge}
-                    />
-                  ))}
+            <p className="mx-auto mt-5 max-w-3xl text-base font-semibold leading-7 text-slate-600 dark:text-white/70 sm:text-lg">
+              Whether you&apos;re starting your martial arts journey, continuing as a student, or joining as an
+              instructor — choose your path below.
+            </p>
+          </header>
+
+          <div className="mt-9 grid grid-cols-1 gap-5 md:grid-cols-2 lg:mt-11 lg:grid-cols-3 lg:gap-6">
+            <PathCard
+              icon={UserPlus}
+              title="New Student"
+              description="Create your student profile, enroll in an academy, and begin your martial arts journey."
+              featured
+            >
+              <Link to="/register/student" className={primaryButton}>
+                Register as Student
+                <CtaArrow />
+              </Link>
+            </PathCard>
+
+            <PathCard
+              icon={GraduationCap}
+              title="Existing Student"
+              description="Sign in to access your classes, attendance, events, progress, and more."
+            >
+              <Link to="/student/login" className={secondaryButton}>
+                Student Sign In
+                <CtaArrow />
+              </Link>
+            </PathCard>
+
+            <PathCard
+              icon={Building2}
+              title="Instructor / Academy"
+              description="Manage your classes and students or apply to teach with MDPL MyDojo."
+            >
+              <Link to="/instructor/login" className={secondaryButton}>
+                Instructor Sign In
+                <CtaArrow />
+              </Link>
+              <Link to="/register/instructor" className={primaryButton}>
+                Apply as Instructor
+                <CtaArrow />
+              </Link>
+            </PathCard>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 gap-y-6 rounded-[1.75rem] border border-slate-200/70 bg-white/65 px-5 py-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.035] sm:grid-cols-2 sm:px-7 lg:grid-cols-4 lg:gap-y-0 lg:px-8">
+            {features.map(({ icon: Icon, title, description }, index) => (
+              <div
+                key={title}
+                className={`flex min-w-0 gap-3 lg:px-5 ${index > 0 ? "lg:border-l lg:border-slate-200/80 lg:dark:border-white/10" : ""}`}
+              >
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+                  <Icon size={20} strokeWidth={2.4} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-slate-950 dark:text-white">{title}</h3>
+                  <p className="mt-1 text-xs font-medium leading-5 text-slate-600 dark:text-white/60">{description}</p>
                 </div>
               </div>
-
-              <div>
-                <div className="mb-3 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.28em] text-slate-600 dark:text-white/70 sm:text-xs sm:tracking-[0.32em]">
-                  <span className="h-px w-8 bg-slate-400 dark:bg-white/30" />
-                  Register
-                </div>
-
-                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-                  {registerCards.map((card) => (
-                    <PublicRoleCard
-                      key={card.href}
-                      title={card.title}
-                      description={card.description}
-                      icon={card.icon}
-                      href={card.href}
-                      ctaLabel={card.ctaLabel}
-                      variant={card.variant}
-                      badge={card.badge}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
