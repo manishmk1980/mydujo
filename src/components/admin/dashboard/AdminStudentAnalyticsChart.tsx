@@ -25,7 +25,7 @@ interface AdminStudentAnalyticsChartProps {
 export function AdminStudentAnalyticsChart({ data, footnote }: AdminStudentAnalyticsChartProps) {
   return (
     <div className="w-full h-[280px] min-h-[280px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height={260} minWidth={1}>
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
           <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />

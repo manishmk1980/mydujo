@@ -24,7 +24,7 @@ interface AdminFeeStatusChartProps {
 export function AdminFeeStatusChart({ data }: AdminFeeStatusChartProps) {
   return (
     <div className="w-full h-[220px] min-h-[220px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height={260} minWidth={1}>
         <BarChart layout="vertical" data={data} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
           <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} />
