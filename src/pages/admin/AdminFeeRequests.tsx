@@ -30,7 +30,7 @@ function formatINRFromPaise(paise: number) {
 
 function formatMonthYear(year: number, monthIndex: number) {
   const d = new Date(Date.UTC(year, monthIndex, 1));
-  if (Number.isNaN(d.getTime())) return 'Unknown period';
+  if (Number.isNaN(d.getTime())) return 'Not Available';
   return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 }
 
@@ -376,7 +376,7 @@ export default function AdminFeeRequests() {
   const confirmDeleteFeeRequest = async (r: FeeRequestDTO) => {
     const ok = await confirm({
       title: 'Delete record?',
-      description: `Student: ${r.student_name ?? 'student'}. Period: ${formatFeeRequestPeriod(r.due_date)}. Amount: ${formatINRFromPaise(r.amount_paise)}. This action cannot be undone. Please confirm before deleting this record.`,
+      description: `Student: ${r.student_full_name || r.student_name || 'NA'}. Period: ${formatFeeRequestPeriod(r.due_date)}. Amount: ${formatINRFromPaise(r.amount_paise)}. This action cannot be undone. Please confirm before deleting this record.`,
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
       variant: 'danger',
@@ -543,7 +543,7 @@ export default function AdminFeeRequests() {
                         <div className="flex flex-col gap-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-slate-900">{r.student_name ?? 'Unknown'}</p>
+                              <p className="truncate text-sm font-bold text-slate-900">{r.student_full_name || r.student_name || 'NA'}</p>
                               <p className="truncate text-xs text-slate-500">{r.student_email ?? 'N/A'}</p>
                             </div>
                             <div className="shrink-0 text-right">
@@ -634,7 +634,7 @@ export default function AdminFeeRequests() {
                         return (
                           <React.Fragment key={r.id}>
                             <tr className="align-top">
-                              <td className="px-4 py-3 font-medium text-slate-900">{r.student_name ?? 'Unknown'}</td>
+                              <td className="px-4 py-3 font-medium text-slate-900">{r.student_full_name || r.student_name || 'NA'}</td>
                               <td className="px-4 py-3 text-slate-600">{r.student_email ?? 'N/A'}</td>
                               <td className="px-4 py-3 text-slate-700">{r.title || formatFeeRequestPeriod(r.due_date)}</td>
                               <td className="px-4 py-3 text-slate-700">{formatDateWithOrdinal(r.due_date)}</td>
@@ -1053,7 +1053,7 @@ export default function AdminFeeRequests() {
               const proofAttachmentUrl = resolveAttachmentUrl(latestSubmission?.proof_url, { feeRequestId: detailsItem.id });
               return (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
-                  <div><span className="font-semibold text-slate-900">Student:</span> {detailsItem.student_name ?? 'Unknown'}</div>
+                  <div><span className="font-semibold text-slate-900">Student:</span> {detailsItem.student_full_name || detailsItem.student_name || 'Not Available'}</div>
                   <div><span className="font-semibold text-slate-900">Email:</span> {detailsItem.student_email ?? 'N/A'}</div>
                   <div><span className="font-semibold text-slate-900">Fee Request For:</span> {formatFeeRequestPeriod(detailsItem.due_date)}</div>
                   <div><span className="font-semibold text-slate-900">Due Date:</span> {formatDateWithOrdinal(detailsItem.due_date)}</div>

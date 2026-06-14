@@ -16,6 +16,7 @@ import feesRoutes from "./routes/fees.routes.js";
 import notificationsRoutes from "./routes/notifications.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
+import usersRoutes from "./routes/users.routes.js";
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use("/fees", feesRoutes);
 app.use("/notifications", notificationsRoutes);
 app.use("/admin", adminRoutes);
 app.use("/chat", chatRoutes);
+app.use("/users", usersRoutes);
 app.use("/", publicRoutes);
 
 app.use("/uploads", express.static(uploadsDir));

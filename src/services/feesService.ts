@@ -46,6 +46,7 @@ export interface FeeRequestDTO {
   id: string;
   title: string;
   description?: string | null;
+  student_full_name?: string | null;
   student_name?: string | null;
   student_email?: string | null;
   amount_paise: number;

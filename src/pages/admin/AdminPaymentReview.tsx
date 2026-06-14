@@ -73,7 +73,7 @@ export default function AdminPaymentReview() {
 
   const studentNameById = React.useMemo(() => {
     const map = new Map<string, string>();
-    for (const s of students) map.set(s.id, s.full_name);
+    for (const s of students) if (s.full_name?.trim()) map.set(s.id, s.full_name.trim());
     return map;
   }, [students]);
 
@@ -188,7 +188,7 @@ export default function AdminPaymentReview() {
               {items.map((s) => {
                 const attachmentUrl = resolveAttachmentUrl(s.proof_url, { feeRequestId: s.fee_request_id });
                 const feeTitle = feeById.get(s.fee_request_id)?.title ?? s.fee_request_id;
-                const studentName = studentNameById.get(s.student_id) ?? s.student_id;
+                const studentName = studentNameById.get(s.student_id) ?? 'NA';
                 return (
                   <li key={s.id} className="min-w-0 px-4 py-4">
                     <div className="flex flex-col gap-3">
@@ -294,7 +294,7 @@ export default function AdminPaymentReview() {
                         <div>{feeById.get(s.fee_request_id)?.title ?? s.fee_request_id}</div>
                       </td>
                       <td className="px-4 py-3 text-[var(--admin-text-muted)]">
-                        <div>{studentNameById.get(s.student_id) ?? s.student_id}</div>
+                        <div>{studentNameById.get(s.student_id) ?? 'NA'}</div>
                       </td>
                       <td className="px-4 py-3 text-[var(--admin-text-muted)]">
                         <div className="font-semibold">{s.method}</div>
@@ -383,7 +383,7 @@ export default function AdminPaymentReview() {
             </div>
             <div>
               <span className="font-semibold text-[var(--admin-text)]">Student:</span>{' '}
-              {studentNameById.get(activeSubmission.student_id) ?? activeSubmission.student_id}
+              {studentNameById.get(activeSubmission.student_id) ?? 'Not Available'}
             </div>
             <div>
               <span className="font-semibold text-[var(--admin-text)]">Method:</span> {activeSubmission.method}

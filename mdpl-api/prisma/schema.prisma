@@ -99,6 +99,8 @@ model User {
   id              String    @id @default(uuid()) @db.Char(36)
   email           String    @unique @db.VarChar(255)
   passwordHash    String?   @map("password_hash") @db.VarChar(255)
+  status          String    @default("ACTIVE") @db.VarChar(32)
+  lastLoginAt     DateTime? @map("last_login_at") @db.DateTime(0)
   emailVerifiedAt DateTime? @map("email_verified_at") @db.DateTime(0)
   createdAt       DateTime  @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
@@ -116,6 +118,7 @@ model User {
   chatThreads        ChatThread[]
   chatMessages       ChatMessage[]
 
+  @@index([status])
   @@map("users")
 }
 

@@ -1,417 +1,79 @@
-/**
- * Admin: Platform Users
- * Super Admin can create and manage admin users with defined roles.
- * User creation API is pending — UI shell is fully built with clear pending states.
- *
- * Roles:
- *   SUPER_ADMIN        — Full access
- *   OPERATIONS_ADMIN   — Students, centers, instructors, disciplines, applications
- *   FINANCE_ADMIN      — Fee requests, payment review, receipts
- *   EVENT_ADMIN        — Events, tournaments, participation records
- *   CENTER_ADMIN       — Assigned center students/instructors only (future scoping)
- *   READ_ONLY_ADMIN    — View-only access
- */
-import React, { useState } from 'react';
-import {
-  UserCog, Shield, User, Clock, Trash2, Plus, X, Loader2,
-  CheckCircle2, XCircle, AlertTriangle, Eye, EyeOff, RefreshCw,
-  Edit, PauseCircle,
-} from 'lucide-react';
+import React from 'react';
+import { CheckCircle2, KeyRound, Loader2, Pencil, Plus, RefreshCw, Search, Shield, UserX, X } from 'lucide-react';
+import { PageContainer } from '../../components/layout/PageContainer';
 import { AdminPageHeader } from '../../components/admin/ui/AdminPageHeader';
-import { AdminTableCard } from '../../components/admin/ui/AdminTableCard';
-import { AdminBadge } from '../../components/admin/ui/AdminBadge';
 import { AdminEmptyState } from '../../components/admin/ui/AdminEmptyState';
+import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
+import { AdminLoadingState } from '../../components/admin/ui/AdminLoadingState';
 import { useAdminConfirm } from '../../components/admin/ui/AdminConfirmProvider';
-import { authService } from '../../services/authService';
+import { pushDataLayer } from '../../lib/dataLayer';
+import { usersService, type PlatformUser, type PlatformUserStatus } from '../../services/usersService';
 
-// ─── Role definitions ─────────────────────────────────────────────────────────
+const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--admin-primary)]';
+const adminRoles = ['ADMIN', 'SUPER_ADMIN'];
+const statuses: PlatformUserStatus[] = ['ACTIVE', 'PENDING_INVITE', 'DISABLED'];
+const value = (input: string | null | undefined) => input?.trim() || 'NA';
+const formatDate = (input: string | null | undefined) => input ? new Date(input).toLocaleString() : 'Not Available';
 
-const ROLES = [
-  { value: 'SUPER_ADMIN', label: 'Super Admin', description: 'Full access to all modules.' },
-  { value: 'OPERATIONS_ADMIN', label: 'Operations Admin', description: 'Students, centers, instructors, disciplines, applications.' },
-  { value: 'FINANCE_ADMIN', label: 'Finance Admin', description: 'Fee requests, payment review, receipts.' },
-  { value: 'EVENT_ADMIN', label: 'Event Admin', description: 'Events, tournaments, participation records.' },
-  { value: 'CENTER_ADMIN', label: 'Center Admin', description: 'Assigned center students/instructors only (scoped — future).' },
-  { value: 'READ_ONLY_ADMIN', label: 'Read-Only Admin', description: 'View-only access across modules.' },
-] as const;
-
-type RoleValue = (typeof ROLES)[number]['value'];
-type UserStatus = 'ACTIVE' | 'DISABLED' | 'PENDING_INVITE';
-
-interface AdminUser {
-  id: string;
-  email: string;
-  fullName: string;
-  role: RoleValue;
-  status: UserStatus;
-  lastActive?: string;
-  createdAt?: string;
-}
-
-function roleBadge(role: RoleValue) {
-  const map: Record<RoleValue, { label: string; variant: 'primary' | 'success' | 'warning' | 'info' | 'neutral' }> = {
-    SUPER_ADMIN: { label: 'Super Admin', variant: 'primary' },
-    OPERATIONS_ADMIN: { label: 'Operations', variant: 'success' },
-    FINANCE_ADMIN: { label: 'Finance', variant: 'warning' },
-    EVENT_ADMIN: { label: 'Events', variant: 'info' },
-    CENTER_ADMIN: { label: 'Center', variant: 'neutral' },
-    READ_ONLY_ADMIN: { label: 'Read Only', variant: 'neutral' },
-  };
-  const m = map[role] ?? { label: role, variant: 'neutral' };
-  return <AdminBadge variant={m.variant} size="sm">{m.label}</AdminBadge>;
-}
-
-function statusBadge(status: UserStatus) {
-  if (status === 'ACTIVE') return <AdminBadge variant="success" size="sm"><CheckCircle2 className="mr-1 size-3" />Active</AdminBadge>;
-  if (status === 'DISABLED') return <AdminBadge variant="danger" size="sm"><XCircle className="mr-1 size-3" />Disabled</AdminBadge>;
-  return <AdminBadge variant="warning" size="sm"><Clock className="mr-1 size-3" />Pending invite</AdminBadge>;
-}
-
-const inputCls = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:border-[var(--admin-primary)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--admin-primary)_15%,transparent)]';
-
-// ─── Create user modal ────────────────────────────────────────────────────────
-
-interface CreateUserModalProps {
-  onClose: () => void;
-  onCreated: (user: AdminUser) => void;
-}
-
-function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
-  const [form, setForm] = useState({ fullName: '', email: '', phone: '', role: 'OPERATIONS_ADMIN' as RoleValue, sendInvite: true, password: '' });
-  const [showPassword, setShowPassword] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const selectedRole = ROLES.find((r) => r.value === form.role);
-
-  const handleSubmit = async () => {
-    setFormError(null);
-    if (!form.fullName.trim() || !form.email.trim()) { setFormError('Full name and email are required.'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setFormError('Enter a valid email address.'); return; }
-    if (!form.sendInvite && form.password.length < 6) { setFormError('Password must be at least 6 characters.'); return; }
-    setSubmitting(true);
+function UserModal({ user, onClose, onSaved }: { user?: PlatformUser; onClose: () => void; onSaved: (user: PlatformUser) => void }) {
+  const [form, setForm] = React.useState({ name: user?.name || '', email: user?.email || '', role: user?.roles.find((role) => adminRoles.includes(role)) || 'ADMIN', status: user?.status || 'ACTIVE' as PlatformUserStatus, password: '' });
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const save = async () => {
     try {
-      // User creation API is pending — simulate locally
-      await new Promise((r) => setTimeout(r, 800));
-      throw new Error('User creation API not yet implemented. The user record was NOT saved.');
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'User creation failed.');
-      setSubmitting(false);
-      return;
-    }
-    // This code runs if API is available in the future
-    onCreated({
-      id: crypto.randomUUID(),
-      email: form.email.trim(),
-      fullName: form.fullName.trim(),
-      role: form.role,
-      status: form.sendInvite ? 'PENDING_INVITE' : 'ACTIVE',
-    });
-    onClose();
+      setBusy(true); setError('');
+      const saved = user
+        ? await usersService.update(user.id, { name: form.name, role: form.role, status: form.status })
+        : await usersService.create({ ...form, password: form.password || undefined });
+      pushDataLayer(user ? 'admin_user_updated' : 'admin_user_created', { user_id: saved.id, role: form.role, status: saved.status, action_source: 'admin_users' });
+      onSaved(saved);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save user'); } finally { setBusy(false); }
   };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 backdrop-blur-sm sm:p-4" onClick={onClose}>
-      <div className="w-full max-w-lg overflow-y-auto max-h-[94dvh] rounded-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
-          <div>
-            <h3 className="font-bold text-slate-900">Create admin user</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Only Super Admin can create and manage admin users.</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm" onClick={onClose}>
+    <div className="max-h-[95dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-between border-b p-5"><div><h2 className="font-bold text-slate-950">{user ? 'Edit user' : 'Create admin user'}</h2><p className="text-xs text-slate-500">Manage secure platform access.</p></div><button onClick={onClose}><X className="size-5" /></button></div>
+      <div className="space-y-4 p-5">
+        {error && <AdminErrorState message={error} />}
+        <label className="block text-xs font-bold text-slate-600">Name<input className={`${inputClass} mt-1`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label className="block text-xs font-bold text-slate-600">Email<input disabled={Boolean(user)} type="email" className={`${inputClass} mt-1 disabled:bg-slate-100`} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-xs font-bold text-slate-600">Role<select className={`${inputClass} mt-1`} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{adminRoles.map((role) => <option key={role}>{role}</option>)}</select></label>
+          <label className="block text-xs font-bold text-slate-600">Status<select className={`${inputClass} mt-1`} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as PlatformUserStatus })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
         </div>
-
-        <div className="p-5 space-y-4 sm:p-6">
-          {/* Backend pending notice */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-            <AlertTriangle className="inline size-3.5 mr-1" />
-            <strong>Backend integration pending.</strong> The user management API is not yet connected. This form is a UI shell — no user will be created until the API is wired.
-          </div>
-
-          {formError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{formError}</div>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Full Name *</label>
-              <input className={inputCls} value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} placeholder="e.g. Arjun Sharma" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Email *</label>
-              <input type="email" className={inputCls} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="admin@example.com" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Phone (optional)</label>
-              <input className={inputCls} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Role *</label>
-              <select className={inputCls} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as RoleValue }))}>
-                {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
-              {selectedRole && (
-                <p className="mt-1 text-xs text-slate-400">{selectedRole.description}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5 sm:col-span-2">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-slate-700">
-                <input type="checkbox" checked={form.sendInvite} onChange={(e) => setForm((f) => ({ ...f, sendInvite: e.target.checked }))} className="size-4 accent-[var(--admin-primary)]" />
-                Send password setup email (recommended)
-              </label>
-              <p className="ml-6 text-xs text-slate-400">User receives a link to set their own password. Requires email backend.</p>
-            </div>
-
-            {!form.sendInvite && (
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Temporary Password</label>
-                <div className="relative">
-                  <input type={showPassword ? 'text' : 'password'} className={`${inputCls} pr-12`} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="At least 6 characters" />
-                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-slate-600" aria-label={showPassword ? 'Hide' : 'Show'}>
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4 sm:px-6">
-          <button onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button onClick={() => void handleSubmit()} disabled={submitting} className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] disabled:opacity-50">
-            {submitting && <Loader2 className="size-4 animate-spin" />} Create user
-          </button>
-        </div>
+        {!user && <label className="block text-xs font-bold text-slate-600">Temporary password<input type="password" className={`${inputClass} mt-1`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><span className="mt-1 block font-normal text-slate-400">Required for an active account; minimum 8 characters.</span></label>}
       </div>
+      <div className="flex justify-end gap-2 border-t p-5"><button className="rounded-xl border px-4 py-2 text-sm font-bold" onClick={onClose}>Cancel</button><button disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50" onClick={() => void save()}>{busy && <Loader2 className="size-4 animate-spin" />}Save user</button></div>
     </div>
-  );
+  </div>;
 }
-
-// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AdminUsers() {
-  // Real users will be loaded here once the admin user-management API is wired.
-  // Until then the list stays empty so no fake records leak into the operations UI.
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [flash, setFlash] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [users, setUsers] = React.useState<PlatformUser[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+  const [search, setSearch] = React.useState('');
+  const [editing, setEditing] = React.useState<PlatformUser | null | undefined>(undefined);
   const confirm = useAdminConfirm();
-
-  const showFlash = (text: string, type: 'success' | 'error' = 'success') => {
-    setFlash({ text, type });
-    setTimeout(() => setFlash(null), 4000);
+  const load = React.useCallback(async () => { try { setLoading(true); setError(''); setUsers((await usersService.list()).users); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to load users'); } finally { setLoading(false); } }, []);
+  React.useEffect(() => { void load(); }, [load]);
+  const filtered = users.filter((user) => `${user.name || ''} ${user.email} ${user.roles.join(' ')}`.toLowerCase().includes(search.toLowerCase()));
+  const replace = (updated: PlatformUser) => { setUsers((current) => current.some((item) => item.id === updated.id) ? current.map((item) => item.id === updated.id ? updated : item) : [updated, ...current]); setEditing(undefined); };
+  const toggle = async (user: PlatformUser) => {
+    const next = user.status === 'DISABLED' ? 'ACTIVE' : 'DISABLED';
+    if (!await confirm({ title: `${next === 'ACTIVE' ? 'Reactivate' : 'Disable'} user?`, description: `${value(user.name)} will be ${next.toLowerCase()}.`, confirmLabel: next === 'ACTIVE' ? 'Reactivate' : 'Disable', variant: next === 'ACTIVE' ? 'default' : 'warning' })) return;
+    try { const updated = await usersService.update(user.id, { status: next }); replace(updated); pushDataLayer('admin_user_status_changed', { user_id: user.id, role: user.roles[0] || 'NA', status: next, action_source: 'admin_users' }); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to change status'); }
   };
-
-  const handleDisable = async (u: AdminUser) => {
-    const ok = await confirm({
-      title: u.status === 'DISABLED' ? 'Reactivate user?' : 'Disable user?',
-      description: u.status === 'DISABLED'
-        ? `"${u.fullName}" will be reactivated. User management API is pending.`
-        : `"${u.fullName}" will lose admin access. They cannot log in until reactivated. User management API is pending.`,
-      confirmLabel: u.status === 'DISABLED' ? 'Reactivate' : 'Disable',
-      cancelLabel: 'Cancel',
-      variant: u.status === 'DISABLED' ? 'default' : 'warning',
-    });
-    if (!ok) return;
-    setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, status: x.status === 'DISABLED' ? 'ACTIVE' : 'DISABLED' } : x));
-    showFlash(`${u.fullName} ${u.status === 'DISABLED' ? 'reactivated' : 'disabled'} (local — user API pending).`);
+  const reset = async (user: PlatformUser) => {
+    const password = window.prompt(`Temporary password for ${value(user.name)} (minimum 8 characters):`);
+    if (!password) return;
+    try { await usersService.resetPassword(user.id, password); pushDataLayer('admin_user_password_reset', { user_id: user.id, role: user.roles[0] || 'NA', status: 'ACTIVE', action_source: 'admin_users' }); await load(); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to reset password'); }
   };
-
-  const handleDelete = async (u: AdminUser) => {
-    const ok = await confirm({
-      title: 'Delete admin user?',
-      description: `"${u.fullName}" (${u.email}) will be permanently removed. This cannot be undone. User management API is pending — this removes from local list only.`,
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      variant: 'danger',
-    });
-    if (!ok) return;
-    setUsers((prev) => prev.filter((x) => x.id !== u.id));
-    showFlash(`${u.fullName} removed (local — user API pending).`);
-  };
-
-  const handlePasswordReset = async (u: AdminUser) => {
-    const ok = await confirm({
-      title: 'Send password reset?',
-      description: `Send a password reset link to ${u.email}?`,
-      confirmLabel: 'Send link',
-      cancelLabel: 'Cancel',
-      variant: 'default',
-    });
-    if (!ok) return;
-    try {
-      const { error } = await authService.resetPasswordForEmail(u.email);
-      if (error) throw new Error(error.message);
-      showFlash('Password reset link sent.');
-    } catch (e) {
-      showFlash(e instanceof Error ? e.message : 'Failed to send reset link.', 'error');
-    }
-  };
-
-  const counts = {
-    total: users.length,
-    active: users.filter((u) => u.status === 'ACTIVE').length,
-    pending: users.filter((u) => u.status === 'PENDING_INVITE').length,
-    disabled: users.filter((u) => u.status === 'DISABLED').length,
-  };
-
-  return (
-    <div className="min-w-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <AdminPageHeader
-        title="Platform users"
-        subtitle="Manage administrative access, roles, and permissions for academy staff."
-        actions={
-          <div className="flex w-full gap-2 sm:w-auto">
-            <button type="button" onClick={() => {}} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
-              <RefreshCw className="size-4" />
-            </button>
-            <button type="button" onClick={() => setCreateOpen(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] sm:flex-none">
-              <Plus className="size-4" /> Create admin user
-            </button>
-          </div>
-        }
-      />
-
-      {/* Backend pending banner */}
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
-        <p className="font-bold">User management API pending</p>
-        <p className="mt-1 text-amber-700">Real admin users will appear here once the user-management API is connected. Creating, editing, or disabling users is currently a local UI preview only — no backend calls are made.</p>
-      </div>
-
-      {flash && (
-        <div className={`rounded-2xl border p-4 text-sm font-medium ${flash.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-          {flash.text}
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: 'Total Users', value: counts.total },
-          { label: 'Active', value: counts.active },
-          { label: 'Pending Invite', value: counts.pending },
-          { label: 'Disabled', value: counts.disabled },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xl font-bold text-slate-900">{s.value}</p>
-            <p className="text-xs text-slate-500">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* User table */}
-      <AdminTableCard title="User directory" subtitle="Real admin users will load here once the user API is connected.">
-        {users.length === 0 ? (
-          <AdminEmptyState
-            title="No admin users yet"
-            description="Once the admin user-management API is enabled, accounts you create will appear here."
-            className="m-4"
-          />
-        ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[480px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80">
-                <th className="px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">User</th>
-                <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 sm:table-cell">Role</th>
-                <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 md:table-cell">Status</th>
-                <th className="hidden px-5 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 lg:table-cell">Last active</th>
-                <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {users.map((u) => (
-                <tr key={u.id} className="transition-colors hover:bg-slate-50/50">
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                        <User className="size-5" />
-                        <div className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-white ${u.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-bold text-slate-900">{u.fullName}</p>
-                        <p className="truncate text-xs text-slate-500">{u.email}</p>
-                        <div className="mt-0.5 sm:hidden">{roleBadge(u.role)}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="hidden px-5 py-4 sm:table-cell">
-                    <div className="flex items-center gap-2">
-                      <Shield className="size-4 shrink-0 text-[var(--admin-primary)]" />
-                      {roleBadge(u.role)}
-                    </div>
-                  </td>
-                  <td className="hidden px-5 py-4 md:table-cell">{statusBadge(u.status)}</td>
-                  <td className="hidden px-5 py-4 text-xs text-slate-500 lg:table-cell">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="size-3.5" /> {u.lastActive ?? '—'}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        title="Reset password"
-                        onClick={() => void handlePasswordReset(u)}
-                        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-                      >
-                        <UserCog className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title={u.status === 'DISABLED' ? 'Reactivate' : 'Disable'}
-                        onClick={() => void handleDisable(u)}
-                        className={`rounded-lg p-2 transition-colors ${u.status === 'DISABLED' ? 'text-emerald-500 hover:bg-emerald-50' : 'text-slate-400 hover:bg-amber-50 hover:text-amber-600'}`}
-                      >
-                        {u.status === 'DISABLED' ? <CheckCircle2 className="size-4" /> : <PauseCircle className="size-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        title="Edit role"
-                        onClick={() => showFlash('Role edit UI pending — user API not connected.', 'error')}
-                        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                      >
-                        <Edit className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete user"
-                        onClick={() => void handleDelete(u)}
-                        className="rounded-lg p-2 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        )}
-      </AdminTableCard>
-
-      {/* Role legend */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Role permissions reference</p>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {ROLES.map((r) => (
-            <div key={r.value} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-              <p className="text-xs font-bold text-slate-800">{r.label}</p>
-              <p className="mt-0.5 text-[11px] text-slate-500">{r.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Create modal */}
-      {createOpen && (
-        <CreateUserModal
-          onClose={() => setCreateOpen(false)}
-          onCreated={(u) => { setUsers((prev) => [u, ...prev]); setCreateOpen(false); showFlash('User created (local only — API pending).'); }}
-        />
-      )}
-    </div>
-  );
+  return <PageContainer>
+    <AdminPageHeader title="Platform Users" subtitle="Create and manage secure admin access." actions={<button className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-4 py-2.5 text-sm font-bold text-white" onClick={() => setEditing(null)}><Plus className="size-4" />Create user</button>} />
+    <div className="mb-4 flex gap-2"><label className="relative flex-1"><Search className="absolute left-3 top-3 size-4 text-slate-400" /><input className={`${inputClass} pl-9`} placeholder="Search users" value={search} onChange={(e) => setSearch(e.target.value)} /></label><button className="rounded-xl border px-3" onClick={() => void load()} aria-label="Refresh"><RefreshCw className="size-4" /></button></div>
+    {error && <AdminErrorState message={error} className="mb-4" />}
+    {loading ? <AdminLoadingState label="Loading users..." /> : filtered.length === 0 ? <AdminEmptyState title="No users found" description="Create an admin user or adjust your search." /> :
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="p-4">User</th><th className="p-4">Role</th><th className="p-4">Status</th><th className="p-4">Last login</th><th className="p-4 text-right">Actions</th></tr></thead><tbody className="divide-y">{filtered.map((user) => <tr key={user.id}><td className="p-4"><div className="font-bold text-slate-900">{value(user.name)}</div><div className="text-xs text-slate-500">{user.email}</div></td><td className="p-4"><span className="inline-flex items-center gap-1 font-semibold"><Shield className="size-4" />{user.roles.filter((role) => adminRoles.includes(role)).join(', ') || 'NA'}</span></td><td className="p-4"><span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${user.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : user.status === 'DISABLED' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}><CheckCircle2 className="size-3" />{user.status}</span></td><td className="p-4 text-slate-500">{formatDate(user.last_login_at)}</td><td className="p-4"><div className="flex justify-end gap-1"><button title="Edit" className="rounded-lg p-2 hover:bg-slate-100" onClick={() => setEditing(user)}><Pencil className="size-4" /></button><button title="Reset password" className="rounded-lg p-2 hover:bg-slate-100" onClick={() => void reset(user)}><KeyRound className="size-4" /></button><button title={user.status === 'DISABLED' ? 'Reactivate' : 'Disable'} className="rounded-lg p-2 text-red-600 hover:bg-red-50" onClick={() => void toggle(user)}><UserX className="size-4" /></button></div></td></tr>)}</tbody></table></div></div>}
+    {editing !== undefined && <UserModal user={editing || undefined} onClose={() => setEditing(undefined)} onSaved={replace} />}
+  </PageContainer>;
 }

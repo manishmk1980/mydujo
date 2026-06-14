@@ -70,7 +70,7 @@ function formatBeltGrade(value?: string | null) {
 function renderStatusBadge(status: string) {
   const styles = STATUS_STYLES[status] ?? 'bg-gray-100 text-gray-700';
   const Icon = STATUS_ICONS[status];
-  const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+  const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'NA';
 
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium ${styles}`}>
@@ -141,7 +141,7 @@ function SafeAvatar({ student, className = '' }: { student: Student; className?:
   useEffect(() => setFailed(false), [student.id, url]);
   return (
     <div className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-orange-50 font-black text-orange-700 ${className}`}>
-      <span aria-hidden="true">{getInitials(student.full_name || student.email)}</span>
+      <span aria-hidden="true">{getInitials(student.full_name || 'Student')}</span>
       {url && !failed ? (
         <img src={url} alt={`${safeText(student.full_name, 'Student')} profile`} className="absolute inset-0 size-full object-cover" onError={() => setFailed(true)} />
       ) : null}
@@ -954,7 +954,7 @@ export default function AdminStudents() {
                       <div className="min-w-0 pt-0.5">
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <h2 className="max-w-full break-words text-base font-black text-slate-950 sm:text-2xl">
-                            {safeText(selectedStudent.full_name, selectedStudent.email || selectedStudent.phone || 'Unnamed Student')}
+                            {safeText(selectedStudent.full_name, 'NA')}
                           </h2>
                           {renderStatusBadge(selectedStudent.status)}
                         </div>

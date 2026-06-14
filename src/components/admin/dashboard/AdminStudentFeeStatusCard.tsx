@@ -81,7 +81,7 @@ export function AdminStudentFeeStatusCard({
         <ul className="space-y-2">
           {rows.map((fr) => {
             const { label, tone } = mapFeeRequestToDisplay(fr);
-            const name = fr.student_name?.trim() || fr.title || 'Student';
+            const name = fr.student_full_name?.trim() || fr.student_name?.trim() || 'NA';
             const detail = fr.title?.trim() && fr.title !== name ? fr.title : 'Fee request';
             return (
               <li

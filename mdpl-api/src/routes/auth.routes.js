@@ -102,6 +102,7 @@ router.post("/login", async (req, res) => {
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: "invalid credentials" });
     }
+    if (user.status === "DISABLED") return res.status(403).json({ error: "Account is disabled" });
 
     const ok = await argon2.verify(user.passwordHash, password);
     if (!ok) {
@@ -143,6 +144,7 @@ router.post("/login", async (req, res) => {
         expiresAt,
       },
     });
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
@@ -187,6 +189,7 @@ router.post("/student/login", async (req, res) => {
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
+    if (user.status === "DISABLED") return res.status(403).json({ error: "Account is disabled" });
 
     const valid = await argon2.verify(user.passwordHash, password);
     if (!valid) {
@@ -237,6 +240,7 @@ router.post("/student/login", async (req, res) => {
       process.env.JWT_ACCESS_SECRET,
       { expiresIn: parseTTL(process.env.ACCESS_TOKEN_TTL || "15m") }
     );
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     return res.json({
       accessToken,
@@ -276,6 +280,7 @@ router.post("/instructor/login", async (req, res) => {
     if (!user || !user.passwordHash) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
+    if (user.status === "DISABLED") return res.status(403).json({ error: "Account is disabled" });
 
     const valid = await argon2.verify(user.passwordHash, password);
     if (!valid) {
@@ -304,6 +309,7 @@ router.post("/instructor/login", async (req, res) => {
       process.env.JWT_ACCESS_SECRET,
       { expiresIn: parseTTL(process.env.ACCESS_TOKEN_TTL || "15m") }
     );
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     return res.json({
       accessToken,
