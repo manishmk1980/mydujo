@@ -278,7 +278,7 @@ model Student {
   schoolCollegeLocationState String?       @map("school_college_location_state") @db.VarChar(128)
   schoolCollegeLocationPin   String?       @map("school_college_location_pin") @db.VarChar(16)
   instructorName             String?       @map("instructor_name") @db.VarChar(255)
-  preferredDiscipline        Discipline?   @map("preferred_discipline")
+  preferredDiscipline        String?       @map("preferred_discipline") @db.VarChar(64)
   trainingCenterId           String?       @map("training_center_id") @db.Char(36)
   profilePhotoUrl            String?       @map("profile_photo_url") @db.VarChar(512)
   status                     StudentStatus @default(pending)
@@ -354,7 +354,7 @@ model ClassSession {
   trainingCenterId String?            @map("training_center_id") @db.Char(36)
   instructorId     String?            @map("instructor_id") @db.Char(36)
   instructorName   String?            @map("instructor_name") @db.VarChar(255)
-  discipline       Discipline?        @map("discipline")
+  discipline       String?            @map("discipline") @db.VarChar(64)
   sessionDate      DateTime           @map("session_date") @db.Date
   startTime        DateTime?          @map("start_time") @db.DateTime(0)
   endTime          DateTime?          @map("end_time") @db.DateTime(0)
