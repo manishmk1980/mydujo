@@ -341,14 +341,14 @@ function StudentDetailsReadOnly({
         </aside>
       </div>
 
-      <div className="sticky bottom-0 z-20 -mx-3 mt-5 border-t border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+      <div className="sticky bottom-0 z-20 -mx-3 mt-5 border-t border-slate-200 bg-white/95 px-3 py-3 shadow-[0_-10px_24px_rgba(15,23,42,0.06)] backdrop-blur-md sm:-mx-6 sm:px-6">
         <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
           <button onClick={onEdit} className={`${actionClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}><Edit className="size-3.5" /><span className="max-[360px]:hidden">Edit Record</span><span className="min-[361px]:hidden">Edit</span></button>
           <button onClick={onAssign} className={`${actionClass} border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100`}><MapPin className="size-3.5" />Assign</button>
           <button onClick={onReset} className={`${actionClass} border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100`}><Key className="size-3.5" /><span className="max-[360px]:hidden">Password Reset</span><span className="min-[361px]:hidden">Reset</span></button>
           {photoUrl ? <a href={photoUrl} target="_blank" rel="noopener noreferrer" onClick={() => pushDataLayer('admin_student_photo_opened', payload)} className={`${actionClass} hidden border-slate-200 bg-white text-slate-700 hover:bg-slate-50 lg:inline-flex`}><ExternalLink className="size-3.5" />View Photo</a> : null}
           <Link onClick={() => pushDataLayer('admin_student_fee_request_clicked', payload)} to={`/admin/fees?studentId=${encodeURIComponent(student.id)}&studentName=${encodeURIComponent(student.full_name)}`} className={`${actionClass} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 lg:ml-auto`}><HandCoins className="size-3.5" />Fee Request</Link>
-          <button onClick={onDelete} className={`${actionClass} col-span-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 lg:col-span-1`}><Trash2 className="size-3.5" /><span className="max-[360px]:hidden">Delete Student</span><span className="min-[361px]:hidden">Delete</span></button>
+          <button onClick={onDelete} className={`${actionClass} col-span-2 mt-1 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 lg:col-span-1 lg:mt-0`}><Trash2 className="size-3.5" /><span className="max-[360px]:hidden">Delete Student</span><span className="min-[361px]:hidden">Delete</span></button>
         </div>
       </div>
     </>
@@ -981,7 +981,7 @@ export default function AdminStudents() {
                   </div>
                 </div>
 
-                <div className="min-h-0 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
+                <div className="min-h-0 overflow-x-hidden overflow-y-auto px-3 pb-40 pt-3 sm:px-6 sm:pb-40 sm:pt-5 lg:pb-28">
                   {editingId === selectedStudent.id ? (
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                       <div className="space-y-1">
