@@ -1,5 +1,3 @@
-const PUBLIC_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
 function optionalText(value, maxLength, fieldName) {
   if (value == null || value === "") return null;
   const text = String(value).trim();
@@ -41,6 +39,13 @@ function normalizePhotoUrl(value) {
       .split(",")
       .map((host) => host.trim().toLowerCase())
       .filter(Boolean);
+    try {
+      if (process.env.API_BASE_URL) {
+        configuredHosts.push(new URL(process.env.API_BASE_URL).hostname.toLowerCase());
+      }
+    } catch {
+      // Invalid API_BASE_URL is handled by environment validation elsewhere.
+    }
     if (!configuredHosts.includes(parsed.hostname.toLowerCase())) {
       const error = new Error("publicPhotoUrl host is not allowed");
       error.status = 400;
@@ -58,21 +63,20 @@ function normalizePhotoUrl(value) {
 }
 
 export function parsePublicProfilePayload(body = {}) {
-  const publicSlug = optionalText(body.publicSlug, 255, "publicSlug")?.toLowerCase() ?? null;
-  if (publicSlug && !PUBLIC_SLUG_PATTERN.test(publicSlug)) {
-    const error = new Error("publicSlug must contain lowercase letters, numbers, and single hyphens only");
-    error.status = 400;
-    throw error;
-  }
-
   return {
     publicProfileEnabled: body.publicProfileEnabled === true,
-    publicDisplayName: optionalText(body.publicDisplayName, 255, "publicDisplayName"),
-    publicSlug,
-    publicBio: optionalText(body.publicBio, 1000, "publicBio"),
-    publicPhotoUrl: normalizePhotoUrl(body.publicPhotoUrl),
     publicDisplayOrder: optionalInteger(body.publicDisplayOrder),
     isFeaturedPublic: body.isFeaturedPublic === true,
+  };
+}
+
+export function parseInstructorOwnedPublicProfile(body = {}) {
+  return {
+    publicDisplayName: optionalText(body.publicDisplayName, 255, "publicDisplayName"),
+    publicBio: optionalText(body.publicBio, 1000, "publicBio"),
+    publicPhotoUrl: normalizePhotoUrl(body.publicPhotoUrl),
+    publicDiscipline: optionalText(body.publicDiscipline, 128, "publicDiscipline"),
+    publicConsentConfirmed: body.publicConsentConfirmed === true,
   };
 }
 

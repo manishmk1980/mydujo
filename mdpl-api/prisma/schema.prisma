@@ -176,36 +176,66 @@ model AdminUser {
 // Instructors
 // ----------------------------------------
 model Instructor {
-  id                     String    @id @default(uuid()) @db.Char(36)
-  userId                 String?   @unique @map("user_id") @db.Char(36)
-  fullName               String    @map("full_name") @db.VarChar(255)
-  email                  String    @db.VarChar(255)
-  phone                  String?   @db.VarChar(32)
-  bio                    String?   @db.VarChar(512)
-  city                   String?   @db.VarChar(128)
-  state                  String?   @db.VarChar(128)
-  profilePhotoUrl        String?   @map("profile_photo_url") @db.VarChar(512)
-  isActive               Boolean   @default(true) @map("is_active")
-  canLogin               Boolean   @default(true) @map("can_login")
-  publicProfileEnabled   Boolean   @default(false) @map("public_profile_enabled")
-  publicDisplayName      String?   @map("public_display_name") @db.VarChar(255)
-  publicSlug             String?   @unique @map("public_slug") @db.VarChar(255)
-  publicBio              String?   @map("public_bio") @db.VarChar(1000)
-  publicPhotoUrl         String?   @map("public_photo_url") @db.VarChar(512)
-  publicDisplayOrder     Int?      @map("public_display_order")
-  isFeaturedPublic       Boolean   @default(false) @map("is_featured_public")
-  publicApprovedByUserId String?   @map("public_approved_by_user_id") @db.Char(36)
-  publicApprovedAt       DateTime? @map("public_approved_at") @db.DateTime(0)
-  publicUpdatedAt        DateTime? @map("public_updated_at") @db.DateTime(0)
-  createdAt              DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt              DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+  id                         String    @id @default(uuid()) @db.Char(36)
+  userId                     String?   @unique @map("user_id") @db.Char(36)
+  fullName                   String    @map("full_name") @db.VarChar(255)
+  email                      String    @db.VarChar(255)
+  phone                      String?   @db.VarChar(32)
+  bio                        String?   @db.VarChar(512)
+  city                       String?   @db.VarChar(128)
+  state                      String?   @db.VarChar(128)
+  profilePhotoUrl            String?   @map("profile_photo_url") @db.VarChar(512)
+  isActive                   Boolean   @default(true) @map("is_active")
+  canLogin                   Boolean   @default(true) @map("can_login")
+  approvalStatus             String    @default("APPROVED") @map("approval_status") @db.VarChar(32)
+  approvedAt                 DateTime? @map("approved_at") @db.DateTime(0)
+  approvedByUserId           String?   @map("approved_by_user_id") @db.Char(36)
+  publicProfileEnabled       Boolean   @default(false) @map("public_profile_enabled")
+  publicDisplayName          String?   @map("public_display_name") @db.VarChar(255)
+  publicSlug                 String?   @unique @map("public_slug") @db.VarChar(255)
+  publicBio                  String?   @map("public_bio") @db.VarChar(1000)
+  publicPhotoUrl             String?   @map("public_photo_url") @db.VarChar(512)
+  publicDiscipline           String?   @map("public_discipline") @db.VarChar(128)
+  publicConsentConfirmed     Boolean   @default(false) @map("public_consent_confirmed")
+  publicReviewStatus         String    @default("DRAFT") @map("public_review_status") @db.VarChar(32)
+  publicReviewSubmittedAt    DateTime? @map("public_review_submitted_at") @db.DateTime(0)
+  publicChangesRequestedNote String?   @map("public_changes_requested_note") @db.VarChar(1000)
+  publicDisplayOrder         Int?      @map("public_display_order")
+  isFeaturedPublic           Boolean   @default(false) @map("is_featured_public")
+  publicApprovedByUserId     String?   @map("public_approved_by_user_id") @db.Char(36)
+  publicApprovedAt           DateTime? @map("public_approved_at") @db.DateTime(0)
+  publicUpdatedAt            DateTime? @map("public_updated_at") @db.DateTime(0)
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
 
-  user          User?                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignments   InstructorStudentAssignment[]
-  classSessions ClassSession[]
-  chatThreads   ChatThread[]
+  user              User?                                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments       InstructorStudentAssignment[]
+  centerAssignments InstructorTrainingCenterAssignment[]
+  classSessions     ClassSession[]
+  chatThreads       ChatThread[]
 
   @@map("instructors")
+}
+
+model InstructorTrainingCenterAssignment {
+  id                  String   @id @default(uuid()) @db.Char(36)
+  instructorId        String   @map("instructor_id") @db.Char(36)
+  trainingCenterId    String   @map("training_center_id") @db.Char(36)
+  canViewStudents     Boolean  @default(true) @map("can_view_students")
+  canManageAttendance Boolean  @default(false) @map("can_manage_attendance")
+  canManageGrading    Boolean  @default(false) @map("can_manage_grading")
+  canManageClasses    Boolean  @default(false) @map("can_manage_classes")
+  assignedByUserId    String?  @map("assigned_by_user_id") @db.Char(36)
+  assignedAt          DateTime @default(now()) @map("assigned_at") @db.DateTime(0)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  instructor     Instructor     @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  trainingCenter TrainingCenter @relation(fields: [trainingCenterId], references: [id], onDelete: Cascade)
+
+  @@unique([instructorId, trainingCenterId])
+  @@index([instructorId])
+  @@index([trainingCenterId])
+  @@map("instructor_training_center_assignments")
 }
 
 model InstructorStudentAssignment {
@@ -254,9 +284,10 @@ model TrainingCenter {
   createdAt              DateTime  @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
 
-  students      Student[]
-  classSessions ClassSession[]
-  feeRequests   FeeRequest[]
+  students              Student[]
+  classSessions         ClassSession[]
+  feeRequests           FeeRequest[]
+  instructorAssignments InstructorTrainingCenterAssignment[]
 
   @@map("training_centers")
 }

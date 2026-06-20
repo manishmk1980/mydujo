@@ -24,10 +24,58 @@ export interface Instructor {
   publicSlug?: string | null;
   publicBio?: string | null;
   publicPhotoUrl?: string | null;
+  publicDiscipline?: string | null;
+  publicConsentConfirmed?: boolean;
+  publicReviewStatus?: string;
+  publicChangesRequestedNote?: string | null;
   publicDisplayOrder?: number | null;
   isFeaturedPublic?: boolean;
   publicApprovedAt?: string | null;
   publicUpdatedAt?: string | null;
+  publicProfile?: InstructorPublicProfile;
+  assignedCenters?: InstructorCenterAssignment[];
+}
+
+export interface InstructorProfileCompletion {
+  percentage: number;
+  completed: number;
+  total: number;
+  missing: string[];
+  isReadyForReview: boolean;
+}
+
+export interface InstructorPublicProfile {
+  publicDisplayName: string;
+  publicSlug: string | null;
+  publicBio: string | null;
+  publicPhotoUrl: string | null;
+  publicDiscipline: string | null;
+  publicConsentConfirmed: boolean;
+  publicProfileEnabled: boolean;
+  publicDisplayOrder: number | null;
+  isFeaturedPublic: boolean;
+  publicReviewStatus: string;
+  publicChangesRequestedNote: string | null;
+  publicReviewSubmittedAt: string | null;
+  publicApprovedAt: string | null;
+  city: string | null;
+  state: string | null;
+  status: 'DRAFT' | 'INCOMPLETE' | 'READY_FOR_REVIEW' | 'PUBLISHED' | 'CHANGES_REQUESTED';
+  completion: InstructorProfileCompletion;
+}
+
+export interface InstructorCenterAssignment {
+  id: string;
+  name: string;
+  city?: string | null;
+  state?: string | null;
+  status?: string;
+  authorities: {
+    canViewStudents: boolean;
+    canManageAttendance: boolean;
+    canManageGrading: boolean;
+    canManageClasses: boolean;
+  };
 }
 
 export interface PublicInstructor {
@@ -39,6 +87,7 @@ export interface PublicInstructor {
   publicPhotoUrl: string | null;
   isFeaturedPublic: boolean;
   publicDisplayOrder: number | null;
+  discipline?: string | null;
 }
 
 export interface AssignedStudent {
@@ -52,6 +101,7 @@ export interface AssignedStudent {
     syllabusCompletionPercent: number;
     readinessStatus?: string;
   };
+  trainingCenter?: { id: string; name: string } | null;
 }
 
 export interface DashboardStats {
@@ -59,6 +109,8 @@ export interface DashboardStats {
   classesCount: number;
   pendingAttendance: number;
   pendingGrading: number;
+  centersCount?: number;
+  assignedCenters?: InstructorCenterAssignment[];
 }
 
 function getPortalAuthHeaders() {
@@ -195,12 +247,10 @@ export const instructorService = {
 
   async updatePublicProfile(id: string, data: {
     publicProfileEnabled: boolean;
-    publicDisplayName?: string | null;
-    publicSlug?: string | null;
-    publicBio?: string | null;
-    publicPhotoUrl?: string | null;
     publicDisplayOrder?: number | null;
     isFeaturedPublic?: boolean;
+    requestChanges?: boolean;
+    changesRequestedNote?: string | null;
   }) {
     const res = await fetch(`${API_BASE}/instructors/${encodeURIComponent(id)}/public-profile`, {
       method: 'PATCH',
@@ -210,7 +260,64 @@ export const instructorService = {
     });
     const result = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(result.error || 'Failed to update public profile');
-    return result.publicProfile as Partial<Instructor>;
+    return result.publicProfile as InstructorPublicProfile;
+  },
+
+  async getMyPublicProfile() {
+    const res = await fetch(`${API_BASE}/instructors/me/public-profile`, {
+      headers: getPortalAuthHeaders(),
+      credentials: 'include',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Failed to load public profile');
+    return data.publicProfile as InstructorPublicProfile;
+  },
+
+  async saveMyPublicProfile(data: {
+    publicDisplayName: string;
+    publicBio: string;
+    publicPhotoUrl: string | null;
+    publicDiscipline: string;
+    publicConsentConfirmed: boolean;
+  }) {
+    const res = await fetch(`${API_BASE}/instructors/me/public-profile`, {
+      method: 'PATCH',
+      headers: getPortalAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to save public profile');
+    return result.publicProfile as InstructorPublicProfile;
+  },
+
+  async submitMyPublicProfileForReview() {
+    const res = await fetch(`${API_BASE}/instructors/me/public-profile/submit-review`, {
+      method: 'POST',
+      headers: getPortalAuthHeaders(),
+      credentials: 'include',
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to submit public profile');
+    return result.publicProfile as InstructorPublicProfile;
+  },
+
+  async updateCenterAssignments(id: string, assignments: Array<{
+    trainingCenterId: string;
+    canViewStudents: boolean;
+    canManageAttendance: boolean;
+    canManageGrading: boolean;
+    canManageClasses: boolean;
+  }>) {
+    const res = await fetch(`${API_BASE}/instructors/${encodeURIComponent(id)}/assignments/centers`, {
+      method: 'PUT',
+      headers: getAdminAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ assignments }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to update center responsibilities');
+    return true;
   },
 
   /**

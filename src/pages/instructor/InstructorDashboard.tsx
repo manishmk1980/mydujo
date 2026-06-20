@@ -6,7 +6,9 @@ import {
     Medal,
     Clock,
     ArrowRight,
-    Loader2
+    Loader2,
+    Building2,
+    ShieldCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageContainer } from '../../components/layout/PageContainer';
@@ -43,6 +45,7 @@ export default function InstructorDashboard() {
         { label: "Today's Classes", value: stats?.classesCount ?? 0, icon: Calendar, color: 'text-purple-600', bg: 'bg-purple-50' },
         { label: 'Pending Attendance', value: stats?.pendingAttendance ?? 0, icon: ClipboardCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
         { label: 'Grading Reviews', value: stats?.pendingGrading ?? 0, icon: Medal, color: 'text-green-600', bg: 'bg-green-50' },
+        { label: 'Assigned Centers', value: stats?.centersCount ?? 0, icon: Building2, color: 'text-orange-600', bg: 'bg-orange-50' },
     ];
 
     if (loading) {
@@ -69,7 +72,7 @@ export default function InstructorDashboard() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
                 {statCards.map((stat) => (
                     <div key={stat.label} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <div className={`size-12 ${stat.bg} ${stat.color} rounded-xl flex items-center justify-center mb-4`}>
@@ -117,6 +120,28 @@ export default function InstructorDashboard() {
                 </div>
 
                 <div className="lg:col-span-4 space-y-6">
+                    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-900"><Building2 className="size-5 text-orange-600" /> My Centers & Responsibilities</h3>
+                        {stats?.assignedCenters?.length ? (
+                            <div className="space-y-3">
+                                {stats.assignedCenters.map((center) => (
+                                    <div key={center.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                                        <p className="font-bold text-slate-900">{center.name}</p>
+                                        <p className="text-xs text-slate-500">{[center.city, center.state].filter(Boolean).join(', ') || 'Location not set'}</p>
+                                        <div className="mt-3 flex flex-wrap gap-1.5">
+                                            {Object.entries(center.authorities).filter(([, enabled]) => enabled).map(([key]) => (
+                                                <span key={key} className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">
+                                                    <ShieldCheck className="size-3 text-emerald-600" /> {key.replace(/^can/, '').replace(/([A-Z])/g, ' $1').trim()}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm leading-6 text-slate-500">Your account is approved, but no center responsibilities have been assigned yet. Complete your profile while Super Admin prepares your operational access.</p>
+                        )}
+                    </section>
                     <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <h3 className="font-bold text-lg text-slate-900 mb-6">Quick Actions</h3>
                         <div className="space-y-3">

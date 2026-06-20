@@ -2,6 +2,8 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import { uploadsDir } from "../config/env.js";
+import { requireAuth } from "../middleware/requireAuth.js";
+import { prisma } from "../db.js";
 
 const router = Router();
 const BASE_DIR = path.join(uploadsDir, "profile-photos");
@@ -19,6 +21,50 @@ function publicUrl(folder, safePath) {
   const baseUrl = process.env.API_BASE_URL || "http://localhost:4000";
   return `${baseUrl}/uploads/${folder}/${safePath.replace(/\\/g, "/")}`;
 }
+
+const PUBLIC_PROFILE_IMAGE_TYPES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+]);
+
+function matchesImageSignature(bytes, mimeType) {
+  if (mimeType === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mimeType === "image/png") return bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (mimeType === "image/webp") return bytes.subarray(0, 4).toString("ascii") === "RIFF"
+    && bytes.subarray(8, 12).toString("ascii") === "WEBP";
+  return false;
+}
+
+router.post("/instructor-public-photo", requireAuth, async (req, res) => {
+  try {
+    const instructor = await prisma.instructor.findUnique({
+      where: { userId: req.auth.userId },
+      select: { id: true },
+    });
+    if (!instructor) return res.status(403).json({ error: "Instructor profile not found" });
+
+    const mimeType = String(req.body?.mimeType || "").toLowerCase();
+    const extension = PUBLIC_PROFILE_IMAGE_TYPES.get(mimeType);
+    if (!extension) return res.status(400).json({ error: "Use a JPG, PNG, or WebP image" });
+    const bytes = Buffer.from(String(req.body?.content || ""), "base64");
+    if (!bytes.length) return res.status(400).json({ error: "Image content is required" });
+    if (bytes.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Image must be 5 MB or smaller" });
+    if (!matchesImageSignature(bytes, mimeType)) {
+      return res.status(400).json({ error: "Image content does not match its file type" });
+    }
+
+    const safePath = `instructors/public/${instructor.id}.${extension}`;
+    const destination = safeDestination(BASE_DIR, safePath);
+    if (!destination) return res.status(400).json({ error: "Invalid image destination" });
+    fs.mkdirSync(path.dirname(destination.fullPath), { recursive: true });
+    fs.writeFileSync(destination.fullPath, bytes);
+    return res.json({ url: `/uploads/profile-photos/${destination.safePath.replace(/\\/g, "/")}` });
+  } catch (error) {
+    console.error("POST /upload/instructor-public-photo error:", error);
+    return res.status(500).json({ error: "Failed to upload public profile photo" });
+  }
+});
 
 /** POST /upload/profile-photo - body: { path: string, content: string } (content = base64) */
 router.post("/profile-photo", (req, res) => {

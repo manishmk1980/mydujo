@@ -119,7 +119,7 @@ async function fetchApplications(): Promise<InstructorApplication[]> {
     const instructors = Array.isArray(data) ? data : (data.instructors || []);
 
     return instructors
-      .filter((i: any) => !i.trainingCenterId && !i.training_center_id)
+      .filter((i: any) => (i.approvalStatus || i.approval_status || 'APPROVED') !== 'APPROVED')
       .map((i: any): InstructorApplication => ({
         id: i.id,
         fullName: i.fullName || i.full_name || i.email || 'Unnamed Instructor',
@@ -134,7 +134,7 @@ async function fetchApplications(): Promise<InstructorApplication[]> {
         idDocumentUrl: null,
         profilePhotoUrl: i.profilePhotoUrl || i.profile_photo_url || null,
         declarationAcceptedAt: null,
-        status: 'PENDING_REVIEW',
+        status: (i.approvalStatus || i.approval_status || 'PENDING_REVIEW') as ApplicationStatus,
         reviewNotes: null,
         requestedInfoMessage: null,
         createdAt: i.createdAt || i.created_at || new Date().toISOString(),

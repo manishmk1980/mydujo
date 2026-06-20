@@ -124,7 +124,13 @@ router.get("/student/:studentId", requireAuth, async (req, res) => {
 router.get("/instructor", requireAuth, async (req, res) => {
   try {
     const instructor = await prisma.instructor.findUnique({
-      where: { userId: req.auth.userId }
+      where: { userId: req.auth.userId },
+      include: {
+        centerAssignments: {
+          where: { canManageAttendance: true },
+          select: { trainingCenterId: true },
+        },
+      },
     });
 
     if (!instructor) return res.status(404).json({ error: "Instructor not found" });
@@ -133,7 +139,15 @@ router.get("/instructor", requireAuth, async (req, res) => {
       where: {
         OR: [
           { classSession: { instructorId: instructor.id } },
-          { student: { instructorAssignments: { some: { instructorId: instructor.id } } } }
+          { student: { instructorAssignments: { some: { instructorId: instructor.id } } } },
+          ...(instructor.centerAssignments.length
+            ? [{
+                OR: [
+                  { classSession: { trainingCenterId: { in: instructor.centerAssignments.map((item) => item.trainingCenterId) } } },
+                  { student: { trainingCenterId: { in: instructor.centerAssignments.map((item) => item.trainingCenterId) } } },
+                ],
+              }]
+            : []),
         ]
       },
       orderBy: { attendanceDate: "desc" },
@@ -165,10 +179,33 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
 
     const existing = await prisma.attendance.findUnique({
       where: { id },
+      include: {
+        classSession: { select: { instructorId: true, trainingCenterId: true } },
+        student: { select: { trainingCenterId: true } },
+      },
     });
 
     if (!existing) {
       return res.status(404).json({ error: "Attendance record not found" });
+    }
+
+    const isAdmin = req.auth.roles?.some((role) => role === "ADMIN" || role === "SUPER_ADMIN");
+    if (!isAdmin) {
+      const instructor = await prisma.instructor.findUnique({
+        where: { userId: req.auth.userId },
+        include: {
+          centerAssignments: {
+            where: { canManageAttendance: true },
+            select: { trainingCenterId: true },
+          },
+        },
+      });
+      if (!instructor) return res.status(403).json({ error: "not authorized" });
+      const permittedCenters = new Set(instructor.centerAssignments.map((item) => item.trainingCenterId));
+      const allowed = existing.classSession?.instructorId === instructor.id
+        || permittedCenters.has(existing.classSession?.trainingCenterId)
+        || permittedCenters.has(existing.student?.trainingCenterId);
+      if (!allowed) return res.status(403).json({ error: "You are not assigned to manage this attendance record" });
     }
 
     const updated = await prisma.attendance.update({

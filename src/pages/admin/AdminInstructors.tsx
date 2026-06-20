@@ -27,7 +27,7 @@ import { authService } from '../../services/authService';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { cn } from '../../lib/utils';
 
-type InstructorExt = Instructor & { _count?: { students: number; classes: number } };
+type InstructorExt = Instructor & { _count?: { students: number; classes: number; centers?: number } };
 
 const inputCls = 'w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 outline-none focus:border-[var(--admin-primary)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--admin-primary)_25%,transparent)]';
 const emptyForm = { fullName: '', email: '', phone: '', city: '', state: '', trainingCenterId: '', trainingCenterName: '', preferredDiscipline: '', bio: '', password: '', isActive: true, canLogin: true };
@@ -161,44 +161,68 @@ function InstructorMenu({ onView, onEdit, onAssign, onPause, onDelete, isActive 
 
 // ─── Assign modal ─────────────────────────────────────────────────────────────
 
-function AssignModal({ instructor, onClose, onSave, trainingCenters, disciplines, submitting }: {
+function AssignModal({ instructor, onClose, onSave, trainingCenters, submitting }: {
   instructor: InstructorExt; onClose: () => void;
-  onSave: (centerId: string, discipline: string) => void;
-  trainingCenters: TrainingCenter[]; disciplines: DisciplineOption[];
+  onSave: (assignments: Array<{ trainingCenterId: string; canViewStudents: boolean; canManageAttendance: boolean; canManageGrading: boolean; canManageClasses: boolean }>) => void;
+  trainingCenters: TrainingCenter[];
   submitting: boolean;
 }) {
-  const [centerId, setCenterId] = useState(instructor.trainingCenterId || '');
-  const [discipline, setDiscipline] = useState(instructor.preferredDiscipline || '');
+  const [assignments, setAssignments] = useState<Record<string, { canViewStudents: boolean; canManageAttendance: boolean; canManageGrading: boolean; canManageClasses: boolean }>>(
+    Object.fromEntries((instructor.assignedCenters || []).map((center) => [center.id, { ...center.authorities }]))
+  );
+  const toggleCenter = (id: string) => setAssignments((current) => {
+    const next = { ...current };
+    if (next[id]) delete next[id];
+    else next[id] = { canViewStudents: true, canManageAttendance: false, canManageGrading: false, canManageClasses: false };
+    return next;
+  });
+  const toggleAuthority = (centerId: string, key: keyof (typeof assignments)[string]) => setAssignments((current) => ({
+    ...current,
+    [centerId]: { ...current[centerId], [key]: !current[centerId][key] },
+  }));
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h3 className="font-bold text-slate-900">Assign: {instructor.fullName}</h3>
-            <p className="mt-0.5 text-xs text-slate-500">Super admin controlled. Assignment pending backend write-through.</p>
+            <p className="mt-0.5 text-xs text-slate-500">Assign multiple centers and grant responsibilities progressively.</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
         </div>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500"><MapPin className="size-3.5" /> Training Center</label>
-            <select value={centerId} onChange={(e) => setCenterId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none">
-              <option value="">— None —</option>
-              {trainingCenters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500"><BookOpen className="size-3.5" /> Discipline</label>
-            <select value={discipline} onChange={(e) => setDiscipline(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none">
-              <option value="">— None —</option>
-              {disciplines.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-            </select>
-          </div>
+        <div className="space-y-3">
+          {trainingCenters.map((center) => {
+            const selected = assignments[center.id];
+            return (
+              <div key={center.id} className={cn('rounded-xl border p-4', selected ? 'border-violet-300 bg-violet-50/50' : 'border-slate-200')}>
+                <label className="flex cursor-pointer items-center gap-3 font-bold text-slate-900">
+                  <input type="checkbox" checked={Boolean(selected)} onChange={() => toggleCenter(center.id)} className="size-4 accent-violet-600" />
+                  <span>{center.name}</span>
+                  <span className="ml-auto text-xs font-medium text-slate-500">{[center.city, center.state].filter(Boolean).join(', ')}</span>
+                </label>
+                {selected && (
+                  <div className="mt-3 grid gap-2 border-t border-violet-200 pt-3 sm:grid-cols-2">
+                    {([
+                      ['canViewStudents', 'View center students'],
+                      ['canManageAttendance', 'Manage attendance'],
+                      ['canManageGrading', 'Manage grading'],
+                      ['canManageClasses', 'Manage classes'],
+                    ] as const).map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                        <input type="checkbox" checked={selected[key]} onChange={() => toggleAuthority(center.id, key)} className="size-4 accent-violet-600" /> {label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {trainingCenters.length === 0 && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No active training centers are available.</p>}
         </div>
         <div className="mt-5 flex justify-end gap-3">
           <button onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button disabled={submitting} onClick={() => onSave(centerId, discipline)} className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] disabled:opacity-50">
-            {submitting && <Loader2 className="size-4 animate-spin" />} Save assignment
+          <button disabled={submitting} onClick={() => onSave(Object.entries(assignments).map(([trainingCenterId, authorities]) => ({ trainingCenterId, ...authorities })))} className="inline-flex items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)] disabled:opacity-50">
+            {submitting && <Loader2 className="size-4 animate-spin" />} Save responsibilities
           </button>
         </div>
       </div>
@@ -214,21 +238,17 @@ function PublicVisibilityPanel({ instructor, canEdit, onSaved }: {
   onSaved: (updated: InstructorExt) => void;
 }) {
   const confirm = useAdminConfirm();
+  const profile = instructor.publicProfile;
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    publicProfileEnabled: Boolean(instructor.publicProfileEnabled),
-    publicDisplayName: instructor.publicDisplayName || instructor.fullName,
-    publicSlug: instructor.publicSlug || '',
-    publicBio: instructor.publicBio || '',
-    publicPhotoUrl: instructor.publicPhotoUrl || '',
-    publicDisplayOrder: instructor.publicDisplayOrder == null ? '' : String(instructor.publicDisplayOrder),
-    isFeaturedPublic: Boolean(instructor.isFeaturedPublic),
-  });
+  const [publicProfileEnabled, setPublicProfileEnabled] = useState(Boolean(profile?.publicProfileEnabled));
+  const [isFeaturedPublic, setIsFeaturedPublic] = useState(Boolean(profile?.isFeaturedPublic));
+  const [publicDisplayOrder, setPublicDisplayOrder] = useState(profile?.publicDisplayOrder == null ? '' : String(profile.publicDisplayOrder));
+  const [changesNote, setChangesNote] = useState('');
 
   const save = async () => {
-    if (form.publicProfileEnabled !== Boolean(instructor.publicProfileEnabled)) {
-      const enabling = form.publicProfileEnabled;
+    if (publicProfileEnabled !== Boolean(profile?.publicProfileEnabled)) {
+      const enabling = publicProfileEnabled;
       const ok = await confirm({
         title: enabling ? 'Publish this instructor?' : 'Remove from public website?',
         description: enabling
@@ -244,15 +264,11 @@ function PublicVisibilityPanel({ instructor, canEdit, onSaved }: {
     setMessage(null);
     try {
       const updated = await instructorService.updatePublicProfile(instructor.id, {
-        publicProfileEnabled: form.publicProfileEnabled,
-        publicDisplayName: form.publicDisplayName.trim() || null,
-        publicSlug: form.publicSlug.trim() || null,
-        publicBio: form.publicBio.trim() || null,
-        publicPhotoUrl: form.publicPhotoUrl.trim() || null,
-        publicDisplayOrder: form.publicDisplayOrder === '' ? null : Number(form.publicDisplayOrder),
-        isFeaturedPublic: form.isFeaturedPublic,
+        publicProfileEnabled,
+        publicDisplayOrder: publicDisplayOrder === '' ? null : Number(publicDisplayOrder),
+        isFeaturedPublic,
       });
-      onSaved({ ...instructor, ...updated });
+      onSaved({ ...instructor, publicProfile: updated as any });
       setMessage('Public visibility settings saved.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not save public visibility settings.');
@@ -260,6 +276,34 @@ function PublicVisibilityPanel({ instructor, canEdit, onSaved }: {
       setSaving(false);
     }
   };
+
+  const requestChanges = async () => {
+    if (!changesNote.trim()) {
+      setMessage('Add a clear note for the instructor first.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await instructorService.updatePublicProfile(instructor.id, {
+        publicProfileEnabled: false,
+        publicDisplayOrder: publicDisplayOrder === '' ? null : Number(publicDisplayOrder),
+        isFeaturedPublic,
+        requestChanges: true,
+        changesRequestedNote: changesNote.trim(),
+      });
+      onSaved({ ...instructor, publicProfile: updated as any });
+      setChangesNote('');
+      setPublicProfileEnabled(false);
+      setMessage('Changes requested from the instructor.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not request changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const completion = profile?.completion ?? { percentage: 0, completed: 0, total: 6, missing: ['Public profile not started'], isReadyForReview: false };
+  const statusLabel = profile?.status?.replaceAll('_', ' ') || 'INCOMPLETE';
 
   return (
     <section className="mt-4 rounded-2xl border border-orange-200 bg-orange-50/50 p-4">
@@ -269,36 +313,48 @@ function PublicVisibilityPanel({ instructor, canEdit, onSaved }: {
             <Globe2 className="size-4 text-orange-600" />
             <h3 className="font-extrabold text-slate-900">Public Website Visibility</h3>
           </div>
-          <p className="mt-1 text-xs leading-5 text-slate-600">Only Super Admin can publish profiles publicly. Email, phone, ID documents, and payment records are never shown.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">Instructor-owned profile content is reviewed here. Only Super Admin controls publication, featuring, and display order.</p>
         </div>
         <div className="flex gap-2">
-          <AdminBadge variant={form.publicProfileEnabled ? 'success' : 'neutral'} size="sm">{form.publicProfileEnabled ? 'Public' : 'Not public'}</AdminBadge>
-          {form.isFeaturedPublic && <AdminBadge variant="warning" size="sm">Featured</AdminBadge>}
+          <AdminBadge variant={profile?.status === 'PUBLISHED' ? 'success' : profile?.status === 'READY_FOR_REVIEW' ? 'info' : 'neutral'} size="sm">{statusLabel}</AdminBadge>
+          {isFeaturedPublic && <AdminBadge variant="warning" size="sm">Featured</AdminBadge>}
         </div>
       </div>
 
       <div className="mt-4 space-y-3">
-        <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <input type="checkbox" disabled={!canEdit} checked={form.publicProfileEnabled} onChange={(e) => setForm((value) => ({ ...value, publicProfileEnabled: e.target.checked }))} className="size-4 accent-orange-600" />
-          Show this instructor on public website
-        </label>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Public display name"><input disabled={!canEdit} maxLength={255} className={inputCls} value={form.publicDisplayName} onChange={(e) => setForm((value) => ({ ...value, publicDisplayName: e.target.value }))} /></Field>
-          <Field label="Public URL slug"><input disabled={!canEdit} maxLength={255} className={inputCls} placeholder="instructor-name" value={form.publicSlug} onChange={(e) => setForm((value) => ({ ...value, publicSlug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} /></Field>
-          <Field label="Public photo URL"><input disabled={!canEdit} maxLength={512} className={inputCls} placeholder="/uploads/..." value={form.publicPhotoUrl} onChange={(e) => setForm((value) => ({ ...value, publicPhotoUrl: e.target.value }))} /></Field>
-          <Field label="Display order"><input disabled={!canEdit} type="number" min="0" max="1000000" className={inputCls} value={form.publicDisplayOrder} onChange={(e) => setForm((value) => ({ ...value, publicDisplayOrder: e.target.value }))} /></Field>
+        <div>
+          <div className="mb-1 flex justify-between text-xs font-bold text-slate-600"><span>Public profile {completion.percentage}% complete</span><span>{completion.completed}/{completion.total}</span></div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-orange-600" style={{ width: `${completion.percentage}%` }} /></div>
         </div>
-        <Field label="Public short bio"><textarea disabled={!canEdit} maxLength={1000} className={cn(inputCls, 'min-h-24')} value={form.publicBio} onChange={(e) => setForm((value) => ({ ...value, publicBio: e.target.value }))} /></Field>
-        <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
-          <input type="checkbox" disabled={!canEdit} checked={form.isFeaturedPublic} onChange={(e) => setForm((value) => ({ ...value, isFeaturedPublic: e.target.checked }))} className="size-4 accent-orange-600" />
-          <Star className="size-4 text-amber-500" /> Featured instructor
-        </label>
+        {completion.missing.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><strong>Missing:</strong> {completion.missing.join(', ')}</div>}
+        <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm sm:grid-cols-2">
+          <div><p className="text-[10px] font-bold uppercase text-slate-400">Display name</p><p className="font-semibold text-slate-900">{profile?.publicDisplayName || instructor.fullName}</p></div>
+          <div><p className="text-[10px] font-bold uppercase text-slate-400">Public slug</p><p className="font-semibold text-slate-900">{profile?.publicSlug || 'Generated on first save'}</p></div>
+          <div><p className="text-[10px] font-bold uppercase text-slate-400">Photo</p><p className="font-semibold text-slate-900">{profile?.publicPhotoUrl ? 'Uploaded' : 'Missing'}</p></div>
+          <div><p className="text-[10px] font-bold uppercase text-slate-400">Location / style</p><p className="font-semibold text-slate-900">{[profile?.city, profile?.state].filter(Boolean).join(', ') || 'Location missing'} · {profile?.publicDiscipline || 'Style missing'}</p></div>
+          <div className="sm:col-span-2"><p className="text-[10px] font-bold uppercase text-slate-400">Bio preview</p><p className="line-clamp-3 text-slate-700">{profile?.publicBio || 'No public bio yet.'}</p></div>
+        </div>
+        {canEdit && <>
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
+            <input type="checkbox" checked={publicProfileEnabled} onChange={(e) => setPublicProfileEnabled(e.target.checked)} className="size-4 accent-orange-600" />
+            Publish on public website
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <input type="checkbox" checked={isFeaturedPublic} onChange={(e) => setIsFeaturedPublic(e.target.checked)} className="size-4 accent-orange-600" />
+              <Star className="size-4 text-amber-500" /> Featured instructor
+            </label>
+            <Field label="Display order"><input type="number" min="0" max="1000000" className={inputCls} value={publicDisplayOrder} onChange={(e) => setPublicDisplayOrder(e.target.value)} /></Field>
+          </div>
+          <Field label="Request profile changes"><textarea maxLength={1000} className={cn(inputCls, 'min-h-20')} placeholder="Tell the instructor exactly what needs attention" value={changesNote} onChange={(e) => setChangesNote(e.target.value)} /></Field>
+        </>}
         {message && <p className={cn('text-sm font-semibold', message.includes('saved') ? 'text-emerald-700' : 'text-red-700')}>{message}</p>}
-        {canEdit && (
+        {canEdit && <div className="flex flex-wrap gap-2">
           <button type="button" disabled={saving} onClick={() => void save()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-extrabold text-white hover:bg-orange-700 disabled:opacity-60">
-            {saving && <Loader2 className="size-4 animate-spin" />} Save public visibility settings
+            {saving && <Loader2 className="size-4 animate-spin" />} Save publication controls
           </button>
-        )}
+          <button type="button" disabled={saving || !changesNote.trim()} onClick={() => void requestChanges()} className="min-h-11 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-extrabold text-amber-800 disabled:opacity-50">Request instructor changes</button>
+        </div>}
       </div>
     </section>
   );
@@ -476,16 +532,21 @@ export default function AdminInstructors() {
     const ok = await confirm({
       title: isActive ? 'Pause instructor?' : 'Reactivate instructor?',
       description: isActive
-        ? `"${i.fullName}" will be paused. They remain assigned to students but cannot actively teach. Backend update pending.`
-        : `"${i.fullName}" will be reactivated. Backend update pending.`,
+        ? `"${i.fullName}" will be paused. Their assignments remain, but portal access and active teaching are suspended.`
+        : `"${i.fullName}" will be reactivated.`,
       confirmLabel: isActive ? 'Pause' : 'Reactivate',
       cancelLabel: 'Cancel',
       variant: isActive ? 'warning' : 'default',
     });
     if (!ok) return;
-    setInstructors((prev) => prev.map((x) => x.id === i.id ? { ...x, isActive: !i.isActive } : x));
-    setDetailInstructor(null);
-    showFlash(`${i.fullName} ${isActive ? 'paused' : 'reactivated'} (local — backend update pending).`);
+    try {
+      const updated = await instructorService.updateInstructor(i.id, { isActive: !i.isActive, canLogin: !i.isActive });
+      setInstructors((prev) => prev.map((x) => x.id === i.id ? { ...x, ...updated } : x));
+      setDetailInstructor(null);
+      showFlash(`${i.fullName} ${isActive ? 'paused' : 'reactivated'}.`);
+    } catch (error) {
+      showFlash(error instanceof Error ? error.message : 'Failed to update instructor status.', 'error');
+    }
   };
 
   const handleDelete = async (i: InstructorExt) => {
@@ -507,13 +568,15 @@ export default function AdminInstructors() {
     }
   };
 
-  const handleAssignSave = async (centerId: string, discipline: string) => {
+  const handleAssignSave = async (assignments: Array<{ trainingCenterId: string; canViewStudents: boolean; canManageAttendance: boolean; canManageGrading: boolean; canManageClasses: boolean }>) => {
     if (!assignInstructor) return;
     setAssignSubmitting(true);
     try {
-      const center = trainingCenters.find((c) => c.id === centerId);
-      setInstructors((prev) => prev.map((x) => x.id === assignInstructor.id ? { ...x, trainingCenterId: centerId, trainingCenterName: center?.name || '', preferredDiscipline: discipline } : x));
-      showFlash('Assignment updated (local — backend write-through pending).');
+      await instructorService.updateCenterAssignments(assignInstructor.id, assignments);
+      await fetchAll();
+      showFlash('Center responsibilities updated.');
+    } catch (error) {
+      showFlash(error instanceof Error ? error.message : 'Failed to update responsibilities.', 'error');
     } finally {
       setAssignSubmitting(false);
       setAssignInstructor(null);
@@ -702,9 +765,8 @@ export default function AdminInstructors() {
         <AssignModal
           instructor={assignInstructor}
           onClose={() => setAssignInstructor(null)}
-          onSave={(c, d) => void handleAssignSave(c, d)}
+          onSave={(assignments) => void handleAssignSave(assignments)}
           trainingCenters={trainingCenters}
-          disciplines={disciplines}
           submitting={assignSubmitting}
         />
       )}

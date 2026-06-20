@@ -3,7 +3,16 @@ import argon2 from "argon2";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { notifyAdminRegistration, sendEmailSafely } from "../services/mail.js";
-import { parsePublicProfilePayload, publicProfileErrorResponse } from "../utils/publicProfile.js";
+import {
+  parseInstructorOwnedPublicProfile,
+  parsePublicProfilePayload,
+  publicProfileErrorResponse,
+} from "../utils/publicProfile.js";
+import {
+  ensureUniqueInstructorPublicSlug,
+  getInstructorPublicProfileCompletion,
+  serializeInstructorPublicProfile,
+} from "../utils/instructorPublicProfile.js";
 
 const router = Router();
 
@@ -16,6 +25,22 @@ function requireSuperAdmin(req, res, next) {
     return res.status(403).json({ error: "not authorized" });
   }
   return next();
+}
+
+async function getAuthenticatedInstructor(req) {
+  return prisma.instructor.findUnique({
+    where: { userId: req.auth.userId },
+    include: {
+      centerAssignments: {
+        include: {
+          trainingCenter: {
+            select: { id: true, name: true, slug: true, city: true, state: true, status: true },
+          },
+        },
+        orderBy: { assignedAt: "asc" },
+      },
+    },
+  });
 }
 
 /**
@@ -45,15 +70,27 @@ router.get("/", async (req, res) => {
  */
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    const instructor = await prisma.instructor.findUnique({
-      where: { userId: req.auth.userId },
-    });
+    const instructor = await getAuthenticatedInstructor(req);
 
     if (!instructor) {
       return res.status(404).json({ error: "Instructor profile not found" });
     }
 
-    return res.json({ instructor });
+    return res.json({
+      instructor: {
+        ...instructor,
+        publicProfile: serializeInstructorPublicProfile(instructor),
+        assignedCenters: instructor.centerAssignments.map((assignment) => ({
+          ...assignment.trainingCenter,
+          authorities: {
+            canViewStudents: assignment.canViewStudents,
+            canManageAttendance: assignment.canManageAttendance,
+            canManageGrading: assignment.canManageGrading,
+            canManageClasses: assignment.canManageClasses,
+          },
+        })),
+      },
+    });
   } catch (err) {
     console.error("GET /instructors/me error:", err);
     return res.status(500).json({ error: "Failed to fetch profile" });
@@ -65,25 +102,27 @@ router.get("/me", requireAuth, async (req, res) => {
  */
 router.get("/my-students", requireAuth, async (req, res) => {
   try {
-    const instructor = await prisma.instructor.findUnique({
-      where: { userId: req.auth.userId }
-    });
+    const instructor = await getAuthenticatedInstructor(req);
     if (!instructor) return res.status(404).json({ error: "Instructor not found" });
 
-    const assignments = await prisma.instructorStudentAssignment.findMany({
-      where: { instructorId: instructor.id },
+    const centerIds = instructor.centerAssignments
+      .filter((assignment) => assignment.canViewStudents)
+      .map((assignment) => assignment.trainingCenterId);
+    const students = await prisma.student.findMany({
+      where: {
+        OR: [
+          { instructorAssignments: { some: { instructorId: instructor.id } } },
+          ...(centerIds.length ? [{ trainingCenterId: { in: centerIds } }] : []),
+        ],
+      },
       include: {
-        student: {
-          include: {
-            gradingProgress: true
-          }
-        }
-      }
+        gradingProgress: true,
+        trainingCenter: { select: { id: true, name: true } },
+      },
+      orderBy: { fullName: "asc" },
     });
 
-    return res.json({
-      students: assignments.map(a => a.student)
-    });
+    return res.json({ students });
   } catch (err) {
     console.error("GET /instructors/my-students error:", err);
     return res.status(500).json({ error: "Failed to fetch students" });
@@ -95,19 +134,45 @@ router.get("/my-students", requireAuth, async (req, res) => {
  */
 router.get("/dashboard-stats", requireAuth, async (req, res) => {
   try {
-    const instructor = await prisma.instructor.findUnique({
-      where: { userId: req.auth.userId }
-    });
+    const instructor = await getAuthenticatedInstructor(req);
 
     if (!instructor) return res.status(404).json({ error: "Instructor not found" });
 
+    const visibleCenterIds = instructor.centerAssignments
+      .filter((assignment) => assignment.canViewStudents)
+      .map((assignment) => assignment.trainingCenterId);
+    const attendanceCenterIds = instructor.centerAssignments
+      .filter((assignment) => assignment.canManageAttendance)
+      .map((assignment) => assignment.trainingCenterId);
+
     const [studentsCount, classesCount, pendingAttendance] = await Promise.all([
-      prisma.instructorStudentAssignment.count({ where: { instructorId: instructor.id } }),
-      prisma.classSession.count({ where: { instructorId: instructor.id } }),
+      prisma.student.count({
+        where: {
+          OR: [
+            { instructorAssignments: { some: { instructorId: instructor.id } } },
+            ...(visibleCenterIds.length ? [{ trainingCenterId: { in: visibleCenterIds } }] : []),
+          ],
+        },
+      }),
+      prisma.classSession.count({
+        where: {
+          OR: [
+            { instructorId: instructor.id },
+            ...(instructor.centerAssignments.length
+              ? [{ trainingCenterId: { in: instructor.centerAssignments.map((item) => item.trainingCenterId) } }]
+              : []),
+          ],
+        },
+      }),
       prisma.attendance.count({
         where: {
           status: 'pending',
-          classSession: { instructorId: instructor.id }
+          OR: [
+            { classSession: { instructorId: instructor.id } },
+            ...(attendanceCenterIds.length
+              ? [{ classSession: { trainingCenterId: { in: attendanceCenterIds } } }]
+              : []),
+          ],
         }
       })
     ]);
@@ -116,7 +181,17 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
       studentsCount,
       classesCount,
       pendingAttendance,
-      pendingGrading: 0
+      pendingGrading: 0,
+      centersCount: instructor.centerAssignments.length,
+      assignedCenters: instructor.centerAssignments.map((assignment) => ({
+        ...assignment.trainingCenter,
+        authorities: {
+          canViewStudents: assignment.canViewStudents,
+          canManageAttendance: assignment.canManageAttendance,
+          canManageGrading: assignment.canManageGrading,
+          canManageClasses: assignment.canManageClasses,
+        },
+      })),
     });
   } catch (err) {
     console.error("Dashboard stats error:", err);
@@ -142,7 +217,14 @@ router.get("/admin/all", requireAuth, requireSuperAdmin, async (req, res) => {
             assignments: true,
             classSessions: true,
           }
-        }
+        },
+        centerAssignments: {
+          include: {
+            trainingCenter: {
+              select: { id: true, name: true, city: true, state: true, status: true },
+            },
+          },
+        },
       },
       orderBy: { fullName: "asc" },
     });
@@ -150,9 +232,20 @@ router.get("/admin/all", requireAuth, requireSuperAdmin, async (req, res) => {
     return res.json({
       instructors: instructors.map(i => ({
         ...i,
+        publicProfile: serializeInstructorPublicProfile(i),
+        assignedCenters: i.centerAssignments.map((assignment) => ({
+          ...assignment.trainingCenter,
+          authorities: {
+            canViewStudents: assignment.canViewStudents,
+            canManageAttendance: assignment.canManageAttendance,
+            canManageGrading: assignment.canManageGrading,
+            canManageClasses: assignment.canManageClasses,
+          },
+        })),
         _count: {
           students: i._count.assignments,
           classes: i._count.classSessions,
+          centers: i.centerAssignments.length,
         }
       }))
     });
@@ -318,7 +411,8 @@ router.post("/:id/assignments/students", requireAuth, requireSuperAdmin, async (
       update: {},
       create: {
         instructorId,
-        studentId
+        studentId,
+        assignedByUserId: req.auth.userId,
       }
     });
 
@@ -375,6 +469,118 @@ router.get("/:id/assignments/students", requireAuth, requireSuperAdmin, async (r
   }
 });
 
+router.put("/:id/assignments/centers", requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const instructor = await prisma.instructor.findUnique({ where: { id: req.params.id } });
+    if (!instructor) return res.status(404).json({ error: "Instructor not found" });
+    const assignments = Array.isArray(req.body?.assignments) ? req.body.assignments : [];
+    const centerIds = [...new Set(assignments.map((item) => String(item.trainingCenterId || "")).filter(Boolean))];
+    const existingCenters = await prisma.trainingCenter.findMany({
+      where: { id: { in: centerIds }, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (existingCenters.length !== centerIds.length) {
+      return res.status(400).json({ error: "One or more training centers are invalid or inactive" });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.instructorTrainingCenterAssignment.deleteMany({
+        where: { instructorId: instructor.id },
+      });
+      if (assignments.length) {
+        await tx.instructorTrainingCenterAssignment.createMany({
+          data: assignments.map((assignment) => ({
+            instructorId: instructor.id,
+            trainingCenterId: String(assignment.trainingCenterId),
+            canViewStudents: assignment.canViewStudents !== false,
+            canManageAttendance: assignment.canManageAttendance === true,
+            canManageGrading: assignment.canManageGrading === true,
+            canManageClasses: assignment.canManageClasses === true,
+            assignedByUserId: req.auth.userId,
+          })),
+        });
+      }
+    });
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("PUT /instructors/:id/assignments/centers error:", error);
+    return res.status(500).json({ error: "Failed to update training center responsibilities" });
+  }
+});
+
+router.get("/me/public-profile", requireAuth, async (req, res) => {
+  try {
+    const instructor = await getAuthenticatedInstructor(req);
+    if (!instructor) return res.status(404).json({ error: "Instructor profile not found" });
+    return res.json({ publicProfile: serializeInstructorPublicProfile(instructor) });
+  } catch (error) {
+    console.error("GET /instructors/me/public-profile error:", error);
+    return res.status(500).json({ error: "Failed to load public profile" });
+  }
+});
+
+router.patch("/me/public-profile", requireAuth, async (req, res) => {
+  try {
+    const instructor = await prisma.instructor.findUnique({ where: { userId: req.auth.userId } });
+    if (!instructor) return res.status(404).json({ error: "Instructor profile not found" });
+
+    const owned = parseInstructorOwnedPublicProfile(req.body);
+    if (owned.publicPhotoUrl && !owned.publicPhotoUrl.includes(`/instructors/public/${instructor.id}.`)) {
+      return res.status(400).json({ error: "Upload your public photo through the instructor profile uploader" });
+    }
+    const publicDisplayName = owned.publicDisplayName || instructor.fullName;
+    const publicSlug = instructor.publicSlug || await ensureUniqueInstructorPublicSlug(
+      prisma,
+      instructor.id,
+      publicDisplayName,
+    );
+    const changedAfterSubmission = ["READY_FOR_REVIEW", "CHANGES_REQUESTED"].includes(instructor.publicReviewStatus);
+    const updated = await prisma.instructor.update({
+      where: { id: instructor.id },
+      data: {
+        ...owned,
+        publicDisplayName,
+        publicSlug,
+        publicReviewStatus: changedAfterSubmission ? "DRAFT" : undefined,
+        publicChangesRequestedNote: changedAfterSubmission ? null : undefined,
+        publicUpdatedAt: new Date(),
+      },
+    });
+    return res.json({ publicProfile: serializeInstructorPublicProfile(updated) });
+  } catch (error) {
+    console.error("PATCH /instructors/me/public-profile error:", error);
+    const response = publicProfileErrorResponse(error, "Failed to save public profile");
+    return res.status(response.status).json({ error: response.message });
+  }
+});
+
+router.post("/me/public-profile/submit-review", requireAuth, async (req, res) => {
+  try {
+    const instructor = await prisma.instructor.findUnique({ where: { userId: req.auth.userId } });
+    if (!instructor) return res.status(404).json({ error: "Instructor profile not found" });
+    const completion = getInstructorPublicProfileCompletion(instructor);
+    if (!completion.isReadyForReview) {
+      return res.status(409).json({
+        error: `Complete your public profile before submitting. Missing: ${completion.missing.join(", ")}.`,
+        completion,
+      });
+    }
+    const updated = await prisma.instructor.update({
+      where: { id: instructor.id },
+      data: {
+        publicReviewStatus: "READY_FOR_REVIEW",
+        publicReviewSubmittedAt: new Date(),
+        publicChangesRequestedNote: null,
+        publicUpdatedAt: new Date(),
+      },
+    });
+    return res.json({ publicProfile: serializeInstructorPublicProfile(updated) });
+  } catch (error) {
+    console.error("POST /instructors/me/public-profile/submit-review error:", error);
+    return res.status(500).json({ error: "Failed to submit public profile for review" });
+  }
+});
+
 /**
  * Super admin can explicitly publish or unpublish an instructor profile.
  * Public copy fields are intentionally separate from operational profile fields.
@@ -383,38 +589,62 @@ router.patch("/:id/public-profile", requireAuth, requireSuperAdmin, async (req, 
   try {
     const existing = await prisma.instructor.findUnique({
       where: { id: req.params.id },
-      select: { id: true, fullName: true, isActive: true },
     });
     if (!existing) return res.status(404).json({ error: "Instructor not found" });
 
     const data = parsePublicProfilePayload(req.body);
-    if (data.publicProfileEnabled && !existing.isActive) {
-      return res.status(409).json({ error: "Only active instructors can be published" });
+    const requestChanges = req.body?.requestChanges === true;
+    const changesRequestedNote = requestChanges
+      ? String(req.body?.changesRequestedNote || "").trim().slice(0, 1000)
+      : null;
+    if (requestChanges && !changesRequestedNote) {
+      return res.status(400).json({ error: "Please explain what the instructor needs to complete" });
+    }
+
+    const completion = getInstructorPublicProfileCompletion(existing);
+    if (data.publicProfileEnabled) {
+      if (!existing.isActive) {
+        return res.status(409).json({ error: "Only active instructors can be published" });
+      }
+      if (!completion.isReadyForReview) {
+        return res.status(409).json({
+          error: `This profile is not ready for public publishing. Missing: ${completion.missing.join(", ")}.`,
+          completion,
+        });
+      }
+      if (existing.publicReviewStatus !== "READY_FOR_REVIEW" && !existing.publicProfileEnabled) {
+        return res.status(409).json({ error: "The instructor must submit the completed profile for review first" });
+      }
     }
 
     const now = new Date();
-    const publicProfile = await prisma.instructor.update({
+    const publicSlug = existing.publicSlug || await ensureUniqueInstructorPublicSlug(
+      prisma,
+      existing.id,
+      existing.publicDisplayName || existing.fullName,
+    );
+    await prisma.instructor.update({
       where: { id: existing.id },
       data: {
         ...data,
+        publicSlug,
+        publicReviewStatus: requestChanges
+          ? "CHANGES_REQUESTED"
+          : data.publicProfileEnabled
+            ? "PUBLISHED"
+            : existing.publicReviewStatus === "PUBLISHED"
+              ? "READY_FOR_REVIEW"
+              : undefined,
+        publicChangesRequestedNote: requestChanges ? changesRequestedNote : undefined,
+        publicProfileEnabled: requestChanges ? false : data.publicProfileEnabled,
         publicApprovedByUserId: data.publicProfileEnabled ? req.auth.userId : undefined,
         publicApprovedAt: data.publicProfileEnabled ? now : undefined,
         publicUpdatedAt: now,
       },
-      select: {
-        publicProfileEnabled: true,
-        publicDisplayName: true,
-        publicSlug: true,
-        publicBio: true,
-        publicPhotoUrl: true,
-        publicDisplayOrder: true,
-        isFeaturedPublic: true,
-        publicApprovedAt: true,
-        publicUpdatedAt: true,
-      },
     });
 
-    return res.json({ publicProfile });
+    const updated = await prisma.instructor.findUnique({ where: { id: existing.id } });
+    return res.json({ publicProfile: serializeInstructorPublicProfile(updated) });
   } catch (error) {
     console.error("PATCH /instructors/:id/public-profile error:", error);
     const response = publicProfileErrorResponse(error, "Failed to update public profile");

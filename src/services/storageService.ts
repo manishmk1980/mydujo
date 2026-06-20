@@ -1,4 +1,5 @@
 import { API_BASE } from '../config';
+import { getPortalToken } from '../lib/authTokens';
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -103,6 +104,28 @@ export const storageService = {
     }
     const data = await res.json();
     return { path: (data as { url?: string }).url ? path : path };
+  },
+
+  async uploadInstructorPublicPhoto(file: File): Promise<{ url: string }> {
+    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (!allowed.has(file.type)) throw new Error('Use a JPG, PNG, or WebP image');
+    if (file.size > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller');
+    const content = await blobToBase64(file);
+    const token = getPortalToken();
+    const res = await fetch(`${API_BASE}/upload/instructor-public-photo`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ content, mimeType: file.type }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data as { error?: string }).error || 'Upload failed');
+    const url = (data as { url?: string }).url;
+    if (!url) throw new Error('Upload failed: missing URL');
+    return { url };
   },
 
   async uploadProfilePhotoFromUrl(sourceUrl: string, path: string): Promise<{ url: string }> {

@@ -68,7 +68,7 @@ export default function PublicInstructorsPage() {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return instructors;
     return instructors.filter((instructor) =>
-      [instructor.displayName, instructor.city, instructor.state, instructor.publicBio]
+      [instructor.displayName, instructor.city, instructor.state, instructor.discipline, instructor.publicBio]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(normalized))
     );
@@ -141,6 +141,7 @@ export default function PublicInstructorsPage() {
                         {[instructor.city, instructor.state].filter(Boolean).join(", ")}
                       </p>
                     )}
+                    {instructor.discipline && <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-orange-600">{instructor.discipline}</p>}
                     {instructor.publicBio && <p className="mt-4 line-clamp-4 leading-7 text-slate-600 dark:text-white/70">{instructor.publicBio}</p>}
                     <Link to="/contact" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/25 dark:bg-orange-600 dark:hover:bg-orange-500">
                       Request training info

@@ -16,8 +16,11 @@ router.patch("/instructor-applications/:id", requireAuth, requireSuperAdmin, asy
   const updated = await prisma.instructor.update({
     where: { id: instructor.id },
     data: {
-      isActive: status !== "REJECTED",
+      isActive: status === "APPROVED",
       canLogin: status === "APPROVED",
+      approvalStatus: status,
+      approvedAt: status === "APPROVED" ? new Date() : undefined,
+      approvedByUserId: status === "APPROVED" ? req.auth.userId : undefined,
       bio: req.body?.reviewNotes ? `${instructor.bio || ""}\nReview: ${req.body.reviewNotes}`.trim() : undefined,
     },
   });

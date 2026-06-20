@@ -170,6 +170,7 @@ export async function createInstructorWithSync(tx, payload, opts = {}) {
   const preferredDiscipline = cleanOptional(payload.preferred_discipline ?? payload.preferredDiscipline, 64);
   const canLogin = payload.can_login ?? payload.canLogin ?? true;
   const isActive = payload.is_active ?? payload.isActive ?? true;
+  const approvalStatus = cleanText(payload.approval_status ?? payload.approvalStatus ?? "APPROVED", 32);
 
   if (!fullName) throw makeError(400, "full_name is required");
   if (!email) throw makeError(400, "email is required");
@@ -229,6 +230,7 @@ export async function createInstructorWithSync(tx, payload, opts = {}) {
       profilePhotoUrl: profilePhotoUrl,
       isActive: Boolean(isActive),
       canLogin: Boolean(canLogin),
+      approvalStatus,
     },
   });
 

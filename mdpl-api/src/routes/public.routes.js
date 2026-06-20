@@ -54,6 +54,10 @@ router.get("/public/instructors", async (req, res) => {
       where: {
         isActive: true,
         publicProfileEnabled: true,
+        publicConsentConfirmed: true,
+        publicBio: { not: null },
+        publicPhotoUrl: { not: null },
+        publicDiscipline: { not: null },
       },
       select: {
         fullName: true,
@@ -63,6 +67,7 @@ router.get("/public/instructors", async (req, res) => {
         publicDisplayName: true,
         publicBio: true,
         publicPhotoUrl: true,
+        publicDiscipline: true,
         publicDisplayOrder: true,
         isFeaturedPublic: true,
       },
@@ -82,6 +87,7 @@ router.get("/public/instructors", async (req, res) => {
         city: instructor.city,
         state: instructor.state,
         publicPhotoUrl: instructor.publicPhotoUrl,
+        discipline: instructor.publicDiscipline,
         isFeaturedPublic: instructor.isFeaturedPublic,
         publicDisplayOrder: instructor.publicDisplayOrder,
       })),
@@ -262,8 +268,11 @@ router.post("/register/instructor", async (req, res) => {
         tx,
         {
           ...body,
-          can_login: true,
-          is_active: true,
+          // Account credentials are prepared at registration, but portal access
+          // begins only after explicit Super Admin approval.
+          can_login: false,
+          is_active: false,
+          approval_status: "PENDING_REVIEW",
         },
         {
           disallowExistingUser: true,
