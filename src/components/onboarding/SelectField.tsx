@@ -10,6 +10,7 @@ interface SelectFieldProps {
   name: string;
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   options: Option[];
   placeholder?: string;
   error?: string;
@@ -18,6 +19,7 @@ interface SelectFieldProps {
   helperText?: string;
   className?: string;
   selectClassName?: string;
+  selectRef?: React.RefObject<HTMLSelectElement | null>;
 }
 
 export function SelectField({
@@ -25,6 +27,7 @@ export function SelectField({
   name,
   value,
   onChange,
+  onBlur,
   options,
   placeholder = 'Select an option',
   error,
@@ -33,19 +36,29 @@ export function SelectField({
   helperText,
   className = '',
   selectClassName = '',
+  selectRef,
 }: SelectFieldProps) {
+  const errorId = `${name}-error`;
+  const helperId = `${name}-helper`;
+
   return (
     <div className={`space-y-2 ${className}`}>
-      <label htmlFor={name} className="text-sm font-bold text-slate-700">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label htmlFor={name} className="text-sm font-bold text-slate-700 dark:text-slate-200">
+        {label} {required && <span className="text-red-500" aria-hidden="true">*</span>}
+        {required && <span className="sr-only"> (required)</span>}
       </label>
       <select
+        ref={selectRef}
         id={name}
         name={name}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         disabled={disabled}
-        className={`mdpl-onboarding-input border-slate-200 ${
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : helperText ? helperId : undefined}
+        aria-required={required || undefined}
+        className={`mdpl-onboarding-input border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mdpl-accent)] ${
           error ? 'border-red-500' : ''
         } ${selectClassName}`}
       >
@@ -56,8 +69,12 @@ export function SelectField({
           </option>
         ))}
       </select>
-      {error && <p className="text-red-500 text-xs font-medium">{error}</p>}
-      {helperText && !error && <p className="text-slate-500 text-xs">{helperText}</p>}
+      {error ? (
+        <p id={errorId} className="text-xs font-medium text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {helperText && !error ? <p id={helperId} className="text-xs text-slate-500">{helperText}</p> : null}
     </div>
   );
 }

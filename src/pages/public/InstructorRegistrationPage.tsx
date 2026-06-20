@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, Loader2, UserCog } from 'lucide-react';
 
@@ -14,6 +14,15 @@ import { ConfirmSubmitDialog } from '../../components/onboarding/ConfirmSubmitDi
 import { API_BASE } from '../../config';
 import { storageService } from '../../services/storageService';
 import { metaService, type DisciplineOption } from '../../services/metaService';
+import {
+  mapInstructorRegistrationError,
+  OTHER_DISCIPLINE_VALUE,
+  resolveDisciplineValue,
+  validateIdDocumentFile,
+  validateInstructorRegistration,
+  validateProfilePhotoFile,
+  type InstructorFormValues,
+} from '../../utils/instructorRegistrationValidation';
 
 const ID_TYPE_OPTIONS = [
   { value: 'aadhaar', label: 'Aadhaar' },
@@ -22,48 +31,62 @@ const ID_TYPE_OPTIONS = [
   { value: 'voter_id', label: 'Voter ID' },
 ] as const;
 
-type FormState = {
-  fullName: string;
-  email: string;
-  phone: string;
-  password: string;
-  city: string;
-  state: string;
-  preferredDiscipline: string;
-  yearsExperience: string;
-  idType: string;
-  idNumber: string;
-  declaration: boolean;
-};
-
-const initialForm: FormState = {
+const initialForm: InstructorFormValues = {
   fullName: '',
   email: '',
   phone: '',
   password: '',
+  confirmPassword: '',
   city: '',
   state: '',
   preferredDiscipline: '',
+  customDiscipline: '',
   yearsExperience: '',
   idType: '',
   idNumber: '',
   declaration: false,
 };
 
+type FieldKey =
+  | keyof InstructorFormValues
+  | 'idDocument'
+  | 'profilePhoto';
+
+const FIELD_ORDER: FieldKey[] = [
+  'fullName',
+  'email',
+  'phone',
+  'password',
+  'confirmPassword',
+  'city',
+  'state',
+  'preferredDiscipline',
+  'customDiscipline',
+  'idType',
+  'idNumber',
+  'idDocument',
+  'declaration',
+];
+
 export default function InstructorRegistrationPage() {
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<InstructorFormValues>(initialForm);
   const [idDocFile, setIdDocFile] = useState<File | null>(null);
   const [idDocPreview, setIdDocPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [idDocUploading, setIdDocUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [disciplines, setDisciplines] = useState<DisciplineOption[]>([]);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+
+  const reviewButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -78,40 +101,113 @@ export default function InstructorRegistrationPage() {
     };
   }, []);
 
-  const update = (key: keyof FormState, value: string | boolean) => {
+  const update = (key: keyof InstructorFormValues, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (typeof value === 'string' && errors[key]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+    if (key === 'declaration' && value === true) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.declaration;
+        return next;
+      });
+      setFormError(null);
+    }
+  };
+
+  const markTouched = (field: FieldKey) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const showError = (field: FieldKey) => {
+    if (!validationAttempted && !touched[field]) return undefined;
+    return errors[field];
   };
 
   const disciplineOptions = useMemo(
-    () => disciplines.map((d) => ({ value: d.value, label: d.label })),
+    () => [
+      ...disciplines.map((d) => ({ value: d.value, label: d.label })),
+      { value: OTHER_DISCIPLINE_VALUE, label: 'Other / Not listed' },
+    ],
     [disciplines],
   );
 
-  const validate = (): boolean => {
-    const next: Record<string, string> = {};
-    if (!form.fullName.trim()) next.fullName = 'Full name is required';
-    if (!form.email.trim()) next.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = 'Invalid email';
-    if (!form.phone.trim()) next.phone = 'Phone number is required';
-    if (!form.city.trim()) next.city = 'City is required';
-    if (!form.state.trim()) next.state = 'State is required';
-    if (!form.preferredDiscipline) next.preferredDiscipline = 'Discipline / style is required';
-    if (form.password.length < 6) next.password = 'Password must be at least 6 characters';
-    if (!form.idType) next.idType = 'ID type is required';
-    if (!form.idNumber.trim()) next.idNumber = 'ID number is required';
-    if (!idDocFile) next.idDocument = 'ID document upload is required';
-    if (!form.declaration) next.declaration = 'You must confirm the declaration';
+  const selectedDisciplineLabel = useMemo(() => {
+    if (form.preferredDiscipline === OTHER_DISCIPLINE_VALUE) {
+      return form.customDiscipline.trim() || 'Other / Not listed';
+    }
+    return disciplineOptions.find((d) => d.value === form.preferredDiscipline)?.label || form.preferredDiscipline;
+  }, [disciplineOptions, form.customDiscipline, form.preferredDiscipline]);
+
+  const focusFirstInvalidField = (nextErrors: Record<string, string>) => {
+    const idMap: Record<string, string> = {
+      fullName: 'fullName',
+      email: 'email',
+      phone: 'phone',
+      password: 'instructor-password',
+      confirmPassword: 'instructor-confirm-password',
+      city: 'city',
+      state: 'state',
+      preferredDiscipline: 'preferredDiscipline',
+      customDiscipline: 'customDiscipline',
+      idType: 'idType',
+      idNumber: 'idNumber',
+      idDocument: 'idDocument-input',
+      declaration: 'declaration',
+      profilePhoto: 'profilePhoto-input',
+    };
+
+    const first = FIELD_ORDER.find((field) => nextErrors[field]);
+    if (!first) return;
+    const targetId = idMap[first];
+    const node = targetId ? document.getElementById(targetId) : null;
+    node?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    node?.focus();
+  };
+
+  const runValidation = () => {
+    const next = validateInstructorRegistration(form, idDocFile);
+    if (photoFile) {
+      const photoError = validateProfilePhotoFile(photoFile);
+      if (photoError) next.profilePhoto = photoError;
+    }
     setErrors(next);
-    return Object.keys(next).length === 0;
+    return next;
   };
 
   const onIdDocChange = (file: File | null) => {
-    setIdDocFile(file);
-    setErrors((e) => ({ ...e, idDocument: '' }));
     if (!file) {
+      setIdDocFile(null);
       setIdDocPreview(null);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.idDocument;
+        return next;
+      });
       return;
     }
+
+    const fileError = validateIdDocumentFile(file);
+    if (fileError) {
+      setIdDocFile(null);
+      setIdDocPreview(null);
+      setErrors((prev) => ({ ...prev, idDocument: fileError }));
+      markTouched('idDocument');
+      return;
+    }
+
+    setIdDocFile(file);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.idDocument;
+      return next;
+    });
+
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onloadend = () => setIdDocPreview(String(reader.result || ''));
@@ -122,11 +218,32 @@ export default function InstructorRegistrationPage() {
   };
 
   const onPhotoChange = (file: File | null) => {
-    setPhotoFile(file);
     if (!file) {
+      setPhotoFile(null);
       setPhotoPreview(null);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.profilePhoto;
+        return next;
+      });
       return;
     }
+
+    const photoError = validateProfilePhotoFile(file);
+    if (photoError) {
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      setErrors((prev) => ({ ...prev, profilePhoto: photoError }));
+      markTouched('profilePhoto');
+      return;
+    }
+
+    setPhotoFile(file);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.profilePhoto;
+      return next;
+    });
     const reader = new FileReader();
     reader.onloadend = () => setPhotoPreview(String(reader.result || ''));
     reader.readAsDataURL(file);
@@ -135,31 +252,81 @@ export default function InstructorRegistrationPage() {
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    if (!validate() || submitting) return;
+    setValidationAttempted(true);
+
+    if (!form.declaration) {
+      const next = runValidation();
+      setFormError('Please accept the declaration to review and submit your application.');
+      focusFirstInvalidField(next);
+      return;
+    }
+
+    const next = runValidation();
+    if (Object.keys(next).length > 0 || submitting) {
+      setFormError('Please fix the highlighted fields before reviewing your application.');
+      focusFirstInvalidField(next);
+      return;
+    }
+
     setConfirmSubmitOpen(true);
   };
 
   const performSubmit = async () => {
     if (submitting) return;
+
+    setValidationAttempted(true);
+    const next = runValidation();
+    if (Object.keys(next).length > 0 || !form.declaration) {
+      setConfirmSubmitOpen(false);
+      setFormError('Please fix the highlighted fields before submitting your application.');
+      focusFirstInvalidField(next);
+      return;
+    }
+
+    if (idDocFile) {
+      const fileError = validateIdDocumentFile(idDocFile);
+      if (fileError) {
+        setConfirmSubmitOpen(false);
+        setErrors((prev) => ({ ...prev, idDocument: fileError }));
+        setFormError(fileError);
+        focusFirstInvalidField({ idDocument: fileError });
+        return;
+      }
+    }
+
     setSubmitting(true);
     setFormError(null);
+
     try {
       let idDocumentUrl: string | null = null;
       if (idDocFile) {
         setIdDocUploading(true);
-        const ext = idDocFile.name.split('.').pop() || 'bin';
-        const path = `instructor-onboarding/id-${crypto.randomUUID()}.${ext}`;
-        const up = await storageService.uploadPaymentProof(idDocFile, path);
-        idDocumentUrl = up.url;
-        setIdDocUploading(false);
+        try {
+          const ext = idDocFile.name.split('.').pop() || 'bin';
+          const path = `instructor-onboarding/id-${crypto.randomUUID()}.${ext}`;
+          const up = await storageService.uploadPaymentProof(idDocFile, path);
+          idDocumentUrl = up.url;
+        } catch {
+          setConfirmSubmitOpen(false);
+          setFormError('Unable to upload your ID document. Please check the file and try again.');
+          return;
+        } finally {
+          setIdDocUploading(false);
+        }
       }
 
       let profilePhotoUrl: string | null = null;
       if (photoFile) {
-        const ext = photoFile.name.split('.').pop() || 'png';
-        const p = storageService.buildInstructorPhotoPath(`${crypto.randomUUID()}.${ext}`, true);
-        await storageService.uploadProfilePhoto(photoFile, p);
-        profilePhotoUrl = storageService.getPublicUrl(p);
+        try {
+          const ext = photoFile.name.split('.').pop() || 'png';
+          const p = storageService.buildInstructorPhotoPath(`${crypto.randomUUID()}.${ext}`, true);
+          await storageService.uploadProfilePhoto(photoFile, p);
+          profilePhotoUrl = storageService.getPublicUrl(p);
+        } catch {
+          setConfirmSubmitOpen(false);
+          setFormError('Unable to upload your profile photo. Please choose another image and try again.');
+          return;
+        }
       }
 
       const res = await fetch(`${API_BASE}/register/instructor`, {
@@ -172,7 +339,7 @@ export default function InstructorRegistrationPage() {
           phone: form.phone.trim(),
           city: form.city.trim(),
           state: form.state.trim(),
-          preferred_discipline: form.preferredDiscipline,
+          preferred_discipline: resolveDisciplineValue(form),
           years_experience: form.yearsExperience.trim() || null,
           id_type: form.idType,
           id_number: form.idNumber.trim(),
@@ -185,7 +352,8 @@ export default function InstructorRegistrationPage() {
 
       const data = await res.json().catch(() => ({} as { error?: string }));
       if (!res.ok) {
-        setFormError(data.error || 'Failed to submit instructor registration');
+        setConfirmSubmitOpen(false);
+        setFormError(mapInstructorRegistrationError(res.status, data.error || ''));
         return;
       }
 
@@ -196,13 +364,31 @@ export default function InstructorRegistrationPage() {
       setIdDocPreview(null);
       setPhotoFile(null);
       setPhotoPreview(null);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Registration failed');
+      setTouched({});
+      setValidationAttempted(false);
+    } catch {
+      setConfirmSubmitOpen(false);
+      setFormError('Unable to submit your application right now. Please try again shortly.');
     } finally {
       setIdDocUploading(false);
       setSubmitting(false);
     }
   };
+
+  const reviewSummary = (
+    <dl className="grid gap-2 text-sm">
+      <div><dt className="font-bold text-slate-900">Name</dt><dd>{form.fullName.trim()}</dd></div>
+      <div><dt className="font-bold text-slate-900">Email</dt><dd>{form.email.trim()}</dd></div>
+      <div><dt className="font-bold text-slate-900">Phone</dt><dd>{form.phone.trim()}</dd></div>
+      <div><dt className="font-bold text-slate-900">Location</dt><dd>{form.city.trim()}, {form.state.trim()}</dd></div>
+      <div><dt className="font-bold text-slate-900">Discipline</dt><dd>{selectedDisciplineLabel}</dd></div>
+      {form.yearsExperience.trim() ? <div><dt className="font-bold text-slate-900">Experience</dt><dd>{form.yearsExperience.trim()} years</dd></div> : null}
+      <div><dt className="font-bold text-slate-900">ID</dt><dd>{ID_TYPE_OPTIONS.find((o) => o.value === form.idType)?.label || form.idType} · document attached</dd></div>
+      <div><dt className="font-bold text-slate-900">Profile photo</dt><dd>{photoFile ? 'Included' : 'Not provided'}</dd></div>
+    </dl>
+  );
+
+  const canReviewSubmit = form.declaration && !submitting;
 
   return (
     <PublicLayout>
@@ -250,15 +436,18 @@ export default function InstructorRegistrationPage() {
             </div>
           ) : (
             <OnboardingFormCard padding="p-5 sm:p-8">
-              <form onSubmit={onFormSubmit} className="min-w-0 space-y-8">
-                {formError ? (
-                  <div
-                    className="rounded-2xl border p-4 text-sm font-medium"
-                    style={{ borderColor: 'var(--mdpl-danger)', color: 'var(--mdpl-danger)', background: 'rgba(220,38,38,0.06)' }}
-                  >
-                    {formError}
-                  </div>
-                ) : null}
+              <form onSubmit={onFormSubmit} noValidate className="min-w-0 space-y-8">
+                <div aria-live="polite" aria-atomic="true" className="space-y-3">
+                  {formError ? (
+                    <div
+                      className="rounded-2xl border p-4 text-sm font-medium"
+                      style={{ borderColor: 'var(--mdpl-danger)', color: 'var(--mdpl-danger)', background: 'rgba(220,38,38,0.06)' }}
+                      role="alert"
+                    >
+                      {formError}
+                    </div>
+                  ) : null}
+                </div>
 
                 <OnboardingSection title="Contact & identity" columns={1} gap="gap-4">
                   <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
@@ -267,7 +456,8 @@ export default function InstructorRegistrationPage() {
                       name="fullName"
                       value={form.fullName}
                       onChange={(v) => update('fullName', v)}
-                      error={errors.fullName}
+                      onBlur={() => markTouched('fullName')}
+                      error={showError('fullName')}
                       required
                     />
                     <InputField
@@ -276,20 +466,25 @@ export default function InstructorRegistrationPage() {
                       type="email"
                       value={form.email}
                       onChange={(v) => update('email', v)}
-                      error={errors.email}
+                      onBlur={() => markTouched('email')}
+                      error={showError('email')}
                       required
+                      autoComplete="email"
                     />
                     <InputField
                       label="Phone number"
                       name="phone"
                       value={form.phone}
                       onChange={(v) => update('phone', v)}
-                      error={errors.phone}
+                      onBlur={() => markTouched('phone')}
+                      error={showError('phone')}
                       required
+                      autoComplete="tel"
                     />
                     <div className="space-y-2">
                       <label htmlFor="instructor-password" className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                        Password <span className="text-red-500">*</span>
+                        Password <span className="text-red-500" aria-hidden="true">*</span>
+                        <span className="sr-only"> (required)</span>
                       </label>
                       <div className="relative">
                         <input
@@ -298,26 +493,67 @@ export default function InstructorRegistrationPage() {
                           type={showPassword ? 'text' : 'password'}
                           value={form.password}
                           onChange={(e) => update('password', e.target.value)}
+                          onBlur={() => markTouched('password')}
                           placeholder="At least 6 characters"
-                          className={`mdpl-onboarding-input pr-12 ${errors.password ? 'border-red-500' : ''}`}
+                          autoComplete="new-password"
+                          aria-invalid={showError('password') ? true : undefined}
+                          aria-describedby={showError('password') ? 'password-error' : undefined}
+                          aria-required="true"
+                          className={`mdpl-onboarding-input pr-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mdpl-accent)] ${showError('password') ? 'border-red-500' : ''}`}
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword((p) => !p)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mdpl-accent)] dark:hover:bg-white/10"
                           aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                         </button>
                       </div>
-                      {errors.password ? <p className="text-xs font-medium text-red-600">{errors.password}</p> : null}
+                      {showError('password') ? (
+                        <p id="password-error" className="text-xs font-medium text-red-600" role="alert">{showError('password')}</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="instructor-confirm-password" className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                        Confirm password <span className="text-red-500" aria-hidden="true">*</span>
+                        <span className="sr-only"> (required)</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="instructor-confirm-password"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={form.confirmPassword}
+                          onChange={(e) => update('confirmPassword', e.target.value)}
+                          onBlur={() => markTouched('confirmPassword')}
+                          placeholder="Re-enter your password"
+                          autoComplete="new-password"
+                          aria-invalid={showError('confirmPassword') ? true : undefined}
+                          aria-describedby={showError('confirmPassword') ? 'confirmPassword-error' : undefined}
+                          aria-required="true"
+                          className={`mdpl-onboarding-input pr-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mdpl-accent)] ${showError('confirmPassword') ? 'border-red-500' : ''}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword((p) => !p)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mdpl-accent)] dark:hover:bg-white/10"
+                          aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                        >
+                          {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        </button>
+                      </div>
+                      {showError('confirmPassword') ? (
+                        <p id="confirmPassword-error" className="text-xs font-medium text-red-600" role="alert">{showError('confirmPassword')}</p>
+                      ) : null}
                     </div>
                     <InputField
                       label="City"
                       name="city"
                       value={form.city}
                       onChange={(v) => update('city', v)}
-                      error={errors.city}
+                      onBlur={() => markTouched('city')}
+                      error={showError('city')}
                       required
                     />
                     <InputField
@@ -325,7 +561,8 @@ export default function InstructorRegistrationPage() {
                       name="state"
                       value={form.state}
                       onChange={(v) => update('state', v)}
-                      error={errors.state}
+                      onBlur={() => markTouched('state')}
+                      error={showError('state')}
                       required
                     />
                   </div>
@@ -337,10 +574,14 @@ export default function InstructorRegistrationPage() {
                       label="Discipline / style"
                       name="preferredDiscipline"
                       value={form.preferredDiscipline}
-                      onChange={(v) => update('preferredDiscipline', v)}
+                      onChange={(v) => {
+                        update('preferredDiscipline', v);
+                        if (v !== OTHER_DISCIPLINE_VALUE) update('customDiscipline', '');
+                      }}
+                      onBlur={() => markTouched('preferredDiscipline')}
                       options={disciplineOptions}
                       placeholder="Select discipline"
-                      error={errors.preferredDiscipline}
+                      error={showError('preferredDiscipline')}
                       required
                     />
                     <InputField
@@ -352,6 +593,18 @@ export default function InstructorRegistrationPage() {
                       helperText="Optional"
                     />
                   </div>
+                  {form.preferredDiscipline === OTHER_DISCIPLINE_VALUE ? (
+                    <InputField
+                      label="Specify discipline / style"
+                      name="customDiscipline"
+                      value={form.customDiscipline}
+                      onChange={(v) => update('customDiscipline', v)}
+                      onBlur={() => markTouched('customDiscipline')}
+                      placeholder="Enter your martial art style"
+                      error={showError('customDiscipline')}
+                      required
+                    />
+                  ) : null}
                 </OnboardingSection>
 
                 <OnboardingSection
@@ -366,9 +619,10 @@ export default function InstructorRegistrationPage() {
                       name="idType"
                       value={form.idType}
                       onChange={(v) => update('idType', v)}
+                      onBlur={() => markTouched('idType')}
                       options={ID_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                       placeholder="Select ID type"
-                      error={errors.idType}
+                      error={showError('idType')}
                       required
                     />
                     <InputField
@@ -376,7 +630,8 @@ export default function InstructorRegistrationPage() {
                       name="idNumber"
                       value={form.idNumber}
                       onChange={(v) => update('idNumber', v)}
-                      error={errors.idNumber}
+                      onBlur={() => markTouched('idNumber')}
+                      error={showError('idNumber')}
                       required
                     />
                   </div>
@@ -387,11 +642,11 @@ export default function InstructorRegistrationPage() {
                       value={idDocFile}
                       onChange={onIdDocChange}
                       accept="image/jpeg,image/png,image/webp,application/pdf"
-                      error={errors.idDocument}
+                      error={showError('idDocument')}
                       required
                       previewUrl={idDocPreview}
                       uploading={idDocUploading}
-                      helperText="JPG, PNG, WebP, or PDF (max 8MB on upload)"
+                      helperText="JPG, PNG, WebP, or PDF (max 8MB)"
                     />
                   </div>
                 </OnboardingSection>
@@ -402,9 +657,10 @@ export default function InstructorRegistrationPage() {
                     name="profilePhoto"
                     value={photoFile}
                     onChange={onPhotoChange}
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
                     previewUrl={photoPreview}
-                    helperText="Optional. If you skip this, admins will still review your application using your ID document."
+                    error={showError('profilePhoto')}
+                    helperText="Optional. JPG, PNG, or WebP up to 8MB."
                   />
                 </OnboardingSection>
 
@@ -413,27 +669,38 @@ export default function InstructorRegistrationPage() {
                   label="I confirm that the information above is accurate to the best of my knowledge, and I agree to follow MDPL MyDojo policies if my application is approved."
                   checked={form.declaration}
                   onChange={(v) => update('declaration', v)}
-                  error={errors.declaration}
+                  error={showError('declaration')}
                   required
                   labelClassName="text-[13px] sm:text-sm"
                 />
 
-                <div className="flex min-w-0 flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
-                  <Link
-                    to="/join-mydojo"
-                    className="inline-flex min-h-[44px] items-center justify-center text-center text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-white/70 dark:hover:text-white"
-                  >
-                    Back to Join MyDojo
-                  </Link>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="inline-flex min-h-[48px] w-full min-w-0 items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-black uppercase tracking-wide text-white shadow-lg sm:w-auto mdpl-onboarding-accent-bg"
-                  >
-                    {submitting ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}
-                    Review &amp; submit
-                    <ArrowRight className="size-4 shrink-0" />
-                  </button>
+                <div className="space-y-3 border-t border-slate-100 pt-6 dark:border-white/10">
+                  {!form.declaration ? (
+                    <p className="text-xs font-medium text-slate-600 dark:text-white/70">
+                      Please accept the declaration to review and submit your application.
+                    </p>
+                  ) : null}
+                  <div className="flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <Link
+                      to="/join-mydojo"
+                      className="inline-flex min-h-[44px] items-center justify-center text-center text-sm font-bold text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mdpl-accent)] dark:text-white/70 dark:hover:text-white"
+                    >
+                      Back to Join MyDojo
+                    </Link>
+                    <button
+                      ref={reviewButtonRef}
+                      type="submit"
+                      disabled={!canReviewSubmit}
+                      aria-disabled={!canReviewSubmit}
+                      className={`inline-flex min-h-[48px] w-full min-w-0 items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-black uppercase tracking-wide text-white shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mdpl-accent)] sm:w-auto mdpl-onboarding-accent-bg ${
+                        !canReviewSubmit ? 'cursor-not-allowed opacity-50 hover:opacity-50' : ''
+                      }`}
+                    >
+                      {submitting ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}
+                      Review &amp; submit
+                      <ArrowRight className="size-4 shrink-0" />
+                    </button>
+                  </div>
                 </div>
               </form>
             </OnboardingFormCard>
@@ -444,9 +711,13 @@ export default function InstructorRegistrationPage() {
             onClose={() => setConfirmSubmitOpen(false)}
             onConfirm={() => void performSubmit()}
             isSubmitting={submitting}
+            returnFocusRef={reviewButtonRef}
             title="Submit instructor application?"
             message="After you submit, this request is sent for MDPL review. You will not be able to edit this submission from this page."
+            summary={reviewSummary}
+            cancelLabel="Edit application"
             confirmLabel="Submit application"
+            submittingLabel="Submitting application…"
           />
         </div>
       </section>

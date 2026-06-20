@@ -122,6 +122,7 @@ export const storageService = {
   },
 
   async uploadPaymentProof(file: File | Blob, path: string): Promise<{ url: string }> {
+    // TODO(server): optional WebP optimization for JPG/PNG uploads; keep PDF unchanged and preserve { url } response.
     const prepared = await preparePaymentProof(file);
     const content = await blobToBase64(prepared.blob);
     const mimeType = prepared.mimeType;
