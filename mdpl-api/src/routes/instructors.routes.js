@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { notifyAdminRegistration, sendEmailSafely } from "../services/mail.js";
+import { parsePublicProfilePayload, publicProfileErrorResponse } from "../utils/publicProfile.js";
 
 const router = Router();
 
@@ -31,9 +32,6 @@ router.get("/", async (req, res) => {
       instructors: instructors.map(i => ({
         id: i.id,
         name: i.fullName,
-        email: i.email,
-        phone: i.phone,
-        profilePhotoUrl: i.profilePhotoUrl
       }))
     });
   } catch (err) {
@@ -377,14 +375,96 @@ router.get("/:id/assignments/students", requireAuth, requireSuperAdmin, async (r
   }
 });
 
+/**
+ * Super admin can explicitly publish or unpublish an instructor profile.
+ * Public copy fields are intentionally separate from operational profile fields.
+ */
+router.patch("/:id/public-profile", requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const existing = await prisma.instructor.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, fullName: true, isActive: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Instructor not found" });
+
+    const data = parsePublicProfilePayload(req.body);
+    if (data.publicProfileEnabled && !existing.isActive) {
+      return res.status(409).json({ error: "Only active instructors can be published" });
+    }
+
+    const now = new Date();
+    const publicProfile = await prisma.instructor.update({
+      where: { id: existing.id },
+      data: {
+        ...data,
+        publicApprovedByUserId: data.publicProfileEnabled ? req.auth.userId : undefined,
+        publicApprovedAt: data.publicProfileEnabled ? now : undefined,
+        publicUpdatedAt: now,
+      },
+      select: {
+        publicProfileEnabled: true,
+        publicDisplayName: true,
+        publicSlug: true,
+        publicBio: true,
+        publicPhotoUrl: true,
+        publicDisplayOrder: true,
+        isFeaturedPublic: true,
+        publicApprovedAt: true,
+        publicUpdatedAt: true,
+      },
+    });
+
+    return res.json({ publicProfile });
+  } catch (error) {
+    console.error("PATCH /instructors/:id/public-profile error:", error);
+    const response = publicProfileErrorResponse(error, "Failed to update public profile");
+    return res.status(response.status).json({ error: response.message });
+  }
+});
+
 router.delete("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
-  const existing = await prisma.instructor.findUnique({ where: { id: req.params.id } });
-  if (!existing) return res.status(404).json({ error: "Instructor not found" });
-  await prisma.$transaction(async (tx) => {
-    await tx.instructor.delete({ where: { id: existing.id } });
-    if (existing.userId) await tx.user.delete({ where: { id: existing.userId } });
-  });
-  return res.json({ ok: true });
+  try {
+    const existing = await prisma.instructor.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: {
+          include: {
+            student: { select: { id: true } },
+            adminUser: { select: { id: true } },
+            userRoles: { include: { role: { select: { name: true } } } },
+          },
+        },
+      },
+    });
+    if (!existing) return res.status(404).json({ error: "Instructor not found" });
+    await prisma.$transaction(async (tx) => {
+      await tx.instructor.delete({ where: { id: existing.id } });
+      if (!existing.userId || !existing.user) return;
+
+      const hasOtherProfile = Boolean(existing.user.student || existing.user.adminUser);
+      const otherRoles = existing.user.userRoles.filter(({ role }) => role.name !== "INSTRUCTOR");
+      if (!hasOtherProfile && otherRoles.length === 0) {
+        await tx.user.delete({ where: { id: existing.userId } });
+        return;
+      }
+
+      const instructorRole = existing.user.userRoles.find(({ role }) => role.name === "INSTRUCTOR");
+      if (instructorRole) {
+        await tx.userRole.delete({
+          where: {
+            userId_roleId: {
+              userId: existing.userId,
+              roleId: instructorRole.roleId,
+            },
+          },
+        });
+      }
+    });
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE /instructors/:id error:", error);
+    return res.status(500).json({ error: "Failed to delete instructor" });
+  }
 });
 
 export default router;

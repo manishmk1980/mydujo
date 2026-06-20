@@ -48,6 +48,50 @@ function parseOptionalDate(value) {
   return d;
 }
 
+router.get("/public/instructors", async (req, res) => {
+  try {
+    const instructors = await prisma.instructor.findMany({
+      where: {
+        isActive: true,
+        publicProfileEnabled: true,
+      },
+      select: {
+        fullName: true,
+        city: true,
+        state: true,
+        publicSlug: true,
+        publicDisplayName: true,
+        publicBio: true,
+        publicPhotoUrl: true,
+        publicDisplayOrder: true,
+        isFeaturedPublic: true,
+      },
+      orderBy: [
+        { isFeaturedPublic: "desc" },
+        { publicDisplayOrder: { sort: "asc", nulls: "last" } },
+        { publicDisplayName: "asc" },
+        { fullName: "asc" },
+      ],
+    });
+
+    return res.json({
+      instructors: instructors.map((instructor) => ({
+        publicSlug: instructor.publicSlug,
+        displayName: instructor.publicDisplayName || instructor.fullName,
+        publicBio: instructor.publicBio,
+        city: instructor.city,
+        state: instructor.state,
+        publicPhotoUrl: instructor.publicPhotoUrl,
+        isFeaturedPublic: instructor.isFeaturedPublic,
+        publicDisplayOrder: instructor.publicDisplayOrder,
+      })),
+    });
+  } catch (error) {
+    console.error("GET /public/instructors error:", error);
+    return res.status(500).json({ error: "Failed to load public instructors" });
+  }
+});
+
 router.post("/register", async (req, res) => {
   try {
     const body = req.body || {};

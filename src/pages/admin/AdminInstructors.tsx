@@ -10,8 +10,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Loader2, UserCog, RefreshCw, Eye, EyeOff, Upload,
-  MoreHorizontal, Edit, Pause, Archive, CheckCircle2, MapPin, BookOpen,
-  Users, Key, X, Search, ClipboardList, ExternalLink,
+  MoreHorizontal, Edit, Pause, CheckCircle2, MapPin, BookOpen,
+  Users, Key, X, Search, ClipboardList, ExternalLink, Trash2, Globe2, Star,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
@@ -24,6 +24,7 @@ import { trainingCenterService, type TrainingCenter } from '../../services/train
 import { metaService, type DisciplineOption } from '../../services/metaService';
 import { storageService } from '../../services/storageService';
 import { authService } from '../../services/authService';
+import { useAdminAuth } from '../../context/AdminAuthContext';
 import { cn } from '../../lib/utils';
 
 type InstructorExt = Instructor & { _count?: { students: number; classes: number } };
@@ -120,9 +121,9 @@ function CreateInstructorPanel({
 
 // ─── Action menu ──────────────────────────────────────────────────────────────
 
-function InstructorMenu({ onView, onEdit, onAssign, onPause, onArchive, isActive }: {
+function InstructorMenu({ onView, onEdit, onAssign, onPause, onDelete, isActive }: {
   onView: () => void; onEdit: () => void; onAssign: () => void;
-  onPause: () => void; onArchive: () => void; isActive: boolean;
+  onPause: () => void; onDelete: () => void; isActive: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -137,7 +138,7 @@ function InstructorMenu({ onView, onEdit, onAssign, onPause, onArchive, isActive
     { label: 'Edit', icon: Edit, action: onEdit },
     { label: 'Assign center / discipline', icon: MapPin, action: onAssign },
     { label: isActive ? 'Pause instructor' : 'Reactivate', icon: isActive ? Pause : CheckCircle2, action: onPause },
-    { label: 'Archive', icon: Archive, action: onArchive },
+    { label: 'Delete', icon: Trash2, action: onDelete },
   ];
 
   return (
@@ -207,10 +208,107 @@ function AssignModal({ instructor, onClose, onSave, trainingCenters, disciplines
 
 // ─── Instructor detail drawer ─────────────────────────────────────────────────
 
-function InstructorDetailDrawer({ instructor, onClose, onEdit, onAssign, onPause, onResetPassword, trainingCenters, disciplines }: {
+function PublicVisibilityPanel({ instructor, canEdit, onSaved }: {
+  instructor: InstructorExt;
+  canEdit: boolean;
+  onSaved: (updated: InstructorExt) => void;
+}) {
+  const confirm = useAdminConfirm();
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    publicProfileEnabled: Boolean(instructor.publicProfileEnabled),
+    publicDisplayName: instructor.publicDisplayName || instructor.fullName,
+    publicSlug: instructor.publicSlug || '',
+    publicBio: instructor.publicBio || '',
+    publicPhotoUrl: instructor.publicPhotoUrl || '',
+    publicDisplayOrder: instructor.publicDisplayOrder == null ? '' : String(instructor.publicDisplayOrder),
+    isFeaturedPublic: Boolean(instructor.isFeaturedPublic),
+  });
+
+  const save = async () => {
+    if (form.publicProfileEnabled !== Boolean(instructor.publicProfileEnabled)) {
+      const enabling = form.publicProfileEnabled;
+      const ok = await confirm({
+        title: enabling ? 'Publish this instructor?' : 'Remove from public website?',
+        description: enabling
+          ? 'This profile will appear on the public website. Private information will not be shown. Continue?'
+          : 'This profile will be removed from the public website. Continue?',
+        confirmLabel: enabling ? 'Publish profile' : 'Remove profile',
+        variant: enabling ? 'default' : 'warning',
+      });
+      if (!ok) return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    try {
+      const updated = await instructorService.updatePublicProfile(instructor.id, {
+        publicProfileEnabled: form.publicProfileEnabled,
+        publicDisplayName: form.publicDisplayName.trim() || null,
+        publicSlug: form.publicSlug.trim() || null,
+        publicBio: form.publicBio.trim() || null,
+        publicPhotoUrl: form.publicPhotoUrl.trim() || null,
+        publicDisplayOrder: form.publicDisplayOrder === '' ? null : Number(form.publicDisplayOrder),
+        isFeaturedPublic: form.isFeaturedPublic,
+      });
+      onSaved({ ...instructor, ...updated });
+      setMessage('Public visibility settings saved.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save public visibility settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="mt-4 rounded-2xl border border-orange-200 bg-orange-50/50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <Globe2 className="size-4 text-orange-600" />
+            <h3 className="font-extrabold text-slate-900">Public Website Visibility</h3>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-600">Only Super Admin can publish profiles publicly. Email, phone, ID documents, and payment records are never shown.</p>
+        </div>
+        <div className="flex gap-2">
+          <AdminBadge variant={form.publicProfileEnabled ? 'success' : 'neutral'} size="sm">{form.publicProfileEnabled ? 'Public' : 'Not public'}</AdminBadge>
+          {form.isFeaturedPublic && <AdminBadge variant="warning" size="sm">Featured</AdminBadge>}
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
+          <input type="checkbox" disabled={!canEdit} checked={form.publicProfileEnabled} onChange={(e) => setForm((value) => ({ ...value, publicProfileEnabled: e.target.checked }))} className="size-4 accent-orange-600" />
+          Show this instructor on public website
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Public display name"><input disabled={!canEdit} maxLength={255} className={inputCls} value={form.publicDisplayName} onChange={(e) => setForm((value) => ({ ...value, publicDisplayName: e.target.value }))} /></Field>
+          <Field label="Public URL slug"><input disabled={!canEdit} maxLength={255} className={inputCls} placeholder="instructor-name" value={form.publicSlug} onChange={(e) => setForm((value) => ({ ...value, publicSlug: e.target.value.toLowerCase().replace(/\s+/g, '-') }))} /></Field>
+          <Field label="Public photo URL"><input disabled={!canEdit} maxLength={512} className={inputCls} placeholder="/uploads/..." value={form.publicPhotoUrl} onChange={(e) => setForm((value) => ({ ...value, publicPhotoUrl: e.target.value }))} /></Field>
+          <Field label="Display order"><input disabled={!canEdit} type="number" min="0" max="1000000" className={inputCls} value={form.publicDisplayOrder} onChange={(e) => setForm((value) => ({ ...value, publicDisplayOrder: e.target.value }))} /></Field>
+        </div>
+        <Field label="Public short bio"><textarea disabled={!canEdit} maxLength={1000} className={cn(inputCls, 'min-h-24')} value={form.publicBio} onChange={(e) => setForm((value) => ({ ...value, publicBio: e.target.value }))} /></Field>
+        <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
+          <input type="checkbox" disabled={!canEdit} checked={form.isFeaturedPublic} onChange={(e) => setForm((value) => ({ ...value, isFeaturedPublic: e.target.checked }))} className="size-4 accent-orange-600" />
+          <Star className="size-4 text-amber-500" /> Featured instructor
+        </label>
+        {message && <p className={cn('text-sm font-semibold', message.includes('saved') ? 'text-emerald-700' : 'text-red-700')}>{message}</p>}
+        {canEdit && (
+          <button type="button" disabled={saving} onClick={() => void save()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-extrabold text-white hover:bg-orange-700 disabled:opacity-60">
+            {saving && <Loader2 className="size-4 animate-spin" />} Save public visibility settings
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function InstructorDetailDrawer({ instructor, onClose, onEdit, onAssign, onPause, onResetPassword, onDelete, onPublicSaved, canPublish, trainingCenters, disciplines }: {
   instructor: InstructorExt; onClose: () => void;
   onEdit: () => void; onAssign: () => void; onPause: () => void;
-  onResetPassword: () => void;
+  onResetPassword: () => void; onDelete: () => void;
+  onPublicSaved: (updated: InstructorExt) => void; canPublish: boolean;
   trainingCenters: TrainingCenter[]; disciplines: DisciplineOption[];
 }) {
   const centerName = trainingCenters.find((c) => c.id === instructor.trainingCenterId)?.name || instructor.trainingCenterName || '—';
@@ -256,6 +354,7 @@ function InstructorDetailDrawer({ instructor, onClose, onEdit, onAssign, onPause
               </div>
             )}
           </div>
+          <PublicVisibilityPanel instructor={instructor} canEdit={canPublish} onSaved={onPublicSaved} />
         </div>
         <div className="flex flex-wrap gap-2 border-t border-slate-200 px-5 py-4">
           <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><Edit className="size-3.5" /> Edit</button>
@@ -264,6 +363,7 @@ function InstructorDetailDrawer({ instructor, onClose, onEdit, onAssign, onPause
             {instructor.isActive ? <><Pause className="size-3.5" /> Pause</> : <><CheckCircle2 className="size-3.5" /> Reactivate</>}
           </button>
           <button onClick={onResetPassword} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"><Key className="size-3.5" /> Reset Password</button>
+          <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"><Trash2 className="size-3.5" /> Delete</button>
           {instructor.profilePhotoUrl && (
             <a href={instructor.profilePhotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><ExternalLink className="size-3.5" /> View Photo</a>
           )}
@@ -286,6 +386,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export default function AdminInstructors() {
   const navigate = useNavigate();
+  const { adminUser } = useAdminAuth();
+  const canPublish = Boolean(adminUser?.roles?.includes('SUPER_ADMIN'));
   const [tab, setTab] = useState<'approved' | 'applications'>('approved');
   const [instructors, setInstructors] = useState<InstructorExt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -386,18 +488,23 @@ export default function AdminInstructors() {
     showFlash(`${i.fullName} ${isActive ? 'paused' : 'reactivated'} (local — backend update pending).`);
   };
 
-  const handleArchive = async (i: InstructorExt) => {
+  const handleDelete = async (i: InstructorExt) => {
     const ok = await confirm({
-      title: 'Archive instructor?',
-      description: `"${i.fullName}" will be archived. Backend archive endpoint is pending.`,
-      confirmLabel: 'Archive',
+      title: 'Delete instructor permanently?',
+      description: `"${i.fullName}" and their instructor login will be permanently deleted. Student records remain, but instructor assignments are removed. This cannot be undone.`,
+      confirmLabel: 'Delete instructor',
       cancelLabel: 'Cancel',
       variant: 'danger',
     });
     if (!ok) return;
-    setInstructors((prev) => prev.filter((x) => x.id !== i.id));
-    setDetailInstructor(null);
-    showFlash(`${i.fullName} archived (local — backend API pending).`);
+    try {
+      await instructorService.deleteInstructor(i.id);
+      setInstructors((prev) => prev.filter((x) => x.id !== i.id));
+      setDetailInstructor(null);
+      showFlash(`${i.fullName} was deleted.`);
+    } catch (error) {
+      showFlash(error instanceof Error ? error.message : 'Failed to delete instructor.', 'error');
+    }
   };
 
   const handleAssignSave = async (centerId: string, discipline: string) => {
@@ -560,7 +667,7 @@ export default function AdminInstructors() {
                       onEdit={() => showFlash('Edit form — coming soon (backend update endpoint pending).', 'error')}
                       onAssign={() => { setAssignInstructor(i); setDetailInstructor(null); }}
                       onPause={() => void handlePause(i)}
-                      onArchive={() => void handleArchive(i)}
+                      onDelete={() => void handleDelete(i)}
                     />
                   </div>
                 </div>
@@ -579,6 +686,12 @@ export default function AdminInstructors() {
           onAssign={() => { setAssignInstructor(detailInstructor); setDetailInstructor(null); }}
           onPause={() => void handlePause(detailInstructor)}
           onResetPassword={() => void handleResetPassword(detailInstructor)}
+          onDelete={() => void handleDelete(detailInstructor)}
+          onPublicSaved={(updated) => {
+            setInstructors((previous) => previous.map((item) => item.id === updated.id ? updated : item));
+            setDetailInstructor(updated);
+          }}
+          canPublish={canPublish}
           trainingCenters={trainingCenters}
           disciplines={disciplines}
         />

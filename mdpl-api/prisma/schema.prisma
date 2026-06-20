@@ -176,19 +176,29 @@ model AdminUser {
 // Instructors
 // ----------------------------------------
 model Instructor {
-  id              String   @id @default(uuid()) @db.Char(36)
-  userId          String?  @unique @map("user_id") @db.Char(36)
-  fullName        String   @map("full_name") @db.VarChar(255)
-  email           String   @db.VarChar(255)
-  phone           String?  @db.VarChar(32)
-  bio             String?  @db.VarChar(512)
-  city            String?  @db.VarChar(128)
-  state           String?  @db.VarChar(128)
-  profilePhotoUrl String?  @map("profile_photo_url") @db.VarChar(512)
-  isActive        Boolean  @default(true) @map("is_active")
-  canLogin        Boolean  @default(true) @map("can_login")
-  createdAt       DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+  id                     String    @id @default(uuid()) @db.Char(36)
+  userId                 String?   @unique @map("user_id") @db.Char(36)
+  fullName               String    @map("full_name") @db.VarChar(255)
+  email                  String    @db.VarChar(255)
+  phone                  String?   @db.VarChar(32)
+  bio                    String?   @db.VarChar(512)
+  city                   String?   @db.VarChar(128)
+  state                  String?   @db.VarChar(128)
+  profilePhotoUrl        String?   @map("profile_photo_url") @db.VarChar(512)
+  isActive               Boolean   @default(true) @map("is_active")
+  canLogin               Boolean   @default(true) @map("can_login")
+  publicProfileEnabled   Boolean   @default(false) @map("public_profile_enabled")
+  publicDisplayName      String?   @map("public_display_name") @db.VarChar(255)
+  publicSlug             String?   @unique @map("public_slug") @db.VarChar(255)
+  publicBio              String?   @map("public_bio") @db.VarChar(1000)
+  publicPhotoUrl         String?   @map("public_photo_url") @db.VarChar(512)
+  publicDisplayOrder     Int?      @map("public_display_order")
+  isFeaturedPublic       Boolean   @default(false) @map("is_featured_public")
+  publicApprovedByUserId String?   @map("public_approved_by_user_id") @db.Char(36)
+  publicApprovedAt       DateTime? @map("public_approved_at") @db.DateTime(0)
+  publicUpdatedAt        DateTime? @map("public_updated_at") @db.DateTime(0)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
 
   user          User?                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignments   InstructorStudentAssignment[]
@@ -220,19 +230,29 @@ model InstructorStudentAssignment {
 // Training centers
 // ----------------------------------------
 model TrainingCenter {
-  id             String    @id @default(uuid()) @db.Char(36)
-  slug           String    @unique @db.VarChar(64)
-  name           String    @db.VarChar(255)
-  address        String?   @db.VarChar(512)
-  pincode        String?   @db.VarChar(16)
-  city           String?   @db.VarChar(128)
-  state          String?   @db.VarChar(128)
-  instructorName String?   @map("instructor_name") @db.VarChar(255)
-  status         String    @default("ACTIVE") @db.VarChar(32)
-  statusNote     String?   @map("status_note") @db.VarChar(512)
-  archivedAt     DateTime? @map("archived_at") @db.DateTime(0)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
+  id                     String    @id @default(uuid()) @db.Char(36)
+  slug                   String    @unique @db.VarChar(64)
+  name                   String    @db.VarChar(255)
+  address                String?   @db.VarChar(512)
+  pincode                String?   @db.VarChar(16)
+  city                   String?   @db.VarChar(128)
+  state                  String?   @db.VarChar(128)
+  instructorName         String?   @map("instructor_name") @db.VarChar(255)
+  status                 String    @default("ACTIVE") @db.VarChar(32)
+  statusNote             String?   @map("status_note") @db.VarChar(512)
+  archivedAt             DateTime? @map("archived_at") @db.DateTime(0)
+  publicProfileEnabled   Boolean   @default(false) @map("public_profile_enabled")
+  publicDisplayName      String?   @map("public_display_name") @db.VarChar(255)
+  publicSlug             String?   @unique @map("public_slug") @db.VarChar(255)
+  publicBio              String?   @map("public_bio") @db.VarChar(1000)
+  publicPhotoUrl         String?   @map("public_photo_url") @db.VarChar(512)
+  publicDisplayOrder     Int?      @map("public_display_order")
+  isFeaturedPublic       Boolean   @default(false) @map("is_featured_public")
+  publicApprovedByUserId String?   @map("public_approved_by_user_id") @db.Char(36)
+  publicApprovedAt       DateTime? @map("public_approved_at") @db.DateTime(0)
+  publicUpdatedAt        DateTime? @map("public_updated_at") @db.DateTime(0)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.DateTime(0)
 
   students      Student[]
   classSessions ClassSession[]
@@ -255,6 +275,8 @@ model PincodeLookup {
 
 // ----------------------------------------
 // Students
+// TODO(public profiles): add consent-gated achievement fields only when minor/guardian
+// consent rules and a strictly whitelisted public endpoint are implemented together.
 // ----------------------------------------
 model Student {
   id                         String        @id @default(uuid()) @db.Char(36)

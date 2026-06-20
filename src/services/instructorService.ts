@@ -19,6 +19,26 @@ export interface Instructor {
   preferredDiscipline?: string | null;
   isActive: boolean;
   canLogin: boolean;
+  publicProfileEnabled?: boolean;
+  publicDisplayName?: string | null;
+  publicSlug?: string | null;
+  publicBio?: string | null;
+  publicPhotoUrl?: string | null;
+  publicDisplayOrder?: number | null;
+  isFeaturedPublic?: boolean;
+  publicApprovedAt?: string | null;
+  publicUpdatedAt?: string | null;
+}
+
+export interface PublicInstructor {
+  publicSlug: string | null;
+  displayName: string;
+  publicBio: string | null;
+  city: string | null;
+  state: string | null;
+  publicPhotoUrl: string | null;
+  isFeaturedPublic: boolean;
+  publicDisplayOrder: number | null;
 }
 
 export interface AssignedStudent {
@@ -173,6 +193,26 @@ export const instructorService = {
     return result.instructor as Instructor;
   },
 
+  async updatePublicProfile(id: string, data: {
+    publicProfileEnabled: boolean;
+    publicDisplayName?: string | null;
+    publicSlug?: string | null;
+    publicBio?: string | null;
+    publicPhotoUrl?: string | null;
+    publicDisplayOrder?: number | null;
+    isFeaturedPublic?: boolean;
+  }) {
+    const res = await fetch(`${API_BASE}/instructors/${encodeURIComponent(id)}/public-profile`, {
+      method: 'PATCH',
+      headers: getAdminAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to update public profile');
+    return result.publicProfile as Partial<Instructor>;
+  },
+
   /**
    * Super Admin: Assign student to instructor
    */
@@ -254,5 +294,12 @@ export const instructorService = {
 
     const data = await res.json();
     return (Array.isArray(data) ? data : (data.instructors || [])) as any[];
+  },
+
+  async getPublicInstructors() {
+    const res = await fetch(`${API_BASE}/public/instructors`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Failed to load public instructors');
+    return (data.instructors || []) as PublicInstructor[];
   },
 };

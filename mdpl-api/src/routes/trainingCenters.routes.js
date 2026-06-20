@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { parsePublicProfilePayload, publicProfileErrorResponse } from "../utils/publicProfile.js";
 
 const router = Router();
 
@@ -89,6 +90,48 @@ router.patch("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
     },
   });
   return res.json({ center });
+});
+
+router.patch("/:id/public-profile", requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const existing = await prisma.trainingCenter.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, status: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Training center not found" });
+
+    const data = parsePublicProfilePayload(req.body);
+    if (data.publicProfileEnabled && existing.status !== "ACTIVE") {
+      return res.status(409).json({ error: "Only active training centers can be published" });
+    }
+
+    const now = new Date();
+    const publicProfile = await prisma.trainingCenter.update({
+      where: { id: existing.id },
+      data: {
+        ...data,
+        publicApprovedByUserId: data.publicProfileEnabled ? req.auth.userId : undefined,
+        publicApprovedAt: data.publicProfileEnabled ? now : undefined,
+        publicUpdatedAt: now,
+      },
+      select: {
+        publicProfileEnabled: true,
+        publicDisplayName: true,
+        publicSlug: true,
+        publicBio: true,
+        publicPhotoUrl: true,
+        publicDisplayOrder: true,
+        isFeaturedPublic: true,
+        publicApprovedAt: true,
+        publicUpdatedAt: true,
+      },
+    });
+    return res.json({ publicProfile });
+  } catch (error) {
+    console.error("PATCH /training-centers/:id/public-profile error:", error);
+    const response = publicProfileErrorResponse(error, "Failed to update public profile");
+    return res.status(response.status).json({ error: response.message });
+  }
 });
 
 router.delete("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
