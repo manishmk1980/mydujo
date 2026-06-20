@@ -67,7 +67,7 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "password must be at least 6 characters" });
     }
 
-    const existingUser = await prisma.users.findUnique({
+    const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
@@ -77,7 +77,7 @@ router.post("/register", async (req, res) => {
 
     const passwordHash = await argon2.hash(password);
 
-    const studentRole = await prisma.roles.findUnique({
+    const studentRole = await prisma.role.findUnique({
       where: { name: "STUDENT" },
     });
 
@@ -101,7 +101,7 @@ router.post("/register", async (req, res) => {
 
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date();
-      const user = await tx.users.create({
+      const user = await tx.user.create({
         data: {
           email,
           password_hash: passwordHash,
@@ -109,14 +109,14 @@ router.post("/register", async (req, res) => {
         },
       });
 
-      await tx.user_roles.create({
+      await tx.userRole.create({
         data: {
           user_id: user.id,
           role_id: studentRole.id,
         },
       });
 
-      const student = await tx.students.create({
+      const student = await tx.student.create({
         data: {
           users: {
             connect: { id: user.id },
@@ -291,7 +291,7 @@ router.post("/contact-enquiry", async (req, res) => {
       },
     });
 
-    const recipients = "sarjuram312@gmail.com, ui.manishmishra@gmail.com";
+    const recipients = process.env.CONTACT_ENQUIRY_TO || "sarjuram312@gmail.com, ui.manishmishra@gmail.com, mydojo.pvt.ltd@gmail.com";
 
     const safeName = escapeHtml(name);
     const safePhone = escapeHtml(phone);

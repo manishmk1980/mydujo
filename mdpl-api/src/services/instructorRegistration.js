@@ -80,7 +80,7 @@ async function ensureUniqueCenterSlug(tx, baseSlug) {
   let candidate = baseSlug;
   let i = 1;
   while (true) {
-    const existing = await tx.training_centers.findUnique({ where: { slug: candidate } });
+    const existing = await tx.trainingCenter.findUnique({ where: { slug: candidate } });
     if (!existing) return candidate;
     candidate = `${baseSlug}_${i++}`;
   }
@@ -101,17 +101,17 @@ async function ensureTrainingCenter(tx, payload) {
 
   let center = null;
   if (trainingCenterId) {
-    center = await tx.training_centers.findUnique({ where: { id: trainingCenterId } });
+    center = await tx.trainingCenter.findUnique({ where: { id: trainingCenterId } });
     if (!center) throw makeError(400, "training_center_id not found");
   } else if (trainingCenterName) {
-    center = await tx.training_centers.findFirst({
+    center = await tx.trainingCenter.findFirst({
       where: { name: trainingCenterName },
     });
 
     if (!center) {
       const slugBase = slugifyCenterName(trainingCenterName);
       const slug = await ensureUniqueCenterSlug(tx, slugBase);
-      center = await tx.training_centers.create({
+      center = await tx.trainingCenter.create({
         data: {
           name: trainingCenterName,
           slug,
@@ -121,7 +121,7 @@ async function ensureTrainingCenter(tx, payload) {
         },
       });
     } else if (instructorName && !center.instructor_name) {
-      center = await tx.training_centers.update({
+      center = await tx.trainingCenter.update({
         where: { id: center.id },
         data: { instructor_name: instructorName },
       });
@@ -153,7 +153,7 @@ export async function ensureInstructorDisciplineColumn(tx) {
 }
 
 async function ensureInstructorRole(tx) {
-  const role = await tx.roles.findUnique({ where: { name: "INSTRUCTOR" } });
+  const role = await tx.role.findUnique({ where: { name: "INSTRUCTOR" } });
   if (!role) throw makeError(500, "INSTRUCTOR role not found");
   return role;
 }
@@ -180,30 +180,30 @@ export async function createInstructorWithSync(tx, payload, opts = {}) {
     throw makeError(400, "password must be at least 6 characters");
   }
 
-  const existingByEmail = await tx.instructors.findFirst({ where: { email } });
+  const existingByEmail = await tx.instructor.findFirst({ where: { email } });
   if (existingByEmail) {
     throw makeError(409, "Instructor profile already exists for this email");
   }
 
-  let user = await tx.users.findUnique({ where: { email } });
+  let user = await tx.user.findUnique({ where: { email } });
   if (user && opts.disallowExistingUser) {
     throw makeError(409, "Email already registered");
   }
 
   if (!user && loginRequired) {
     const passwordHash = await argon2.hash(password);
-    user = await tx.users.create({
+    user = await tx.user.create({
       data: {
         email,
-        password_hash: passwordHash,
-        updated_at: new Date(),
+        passwordHash: passwordHash,
+        updatedAt: new Date(),
       },
     });
   }
 
   if (user) {
-    const existingByUserId = await tx.instructors.findFirst({
-      where: { user_id: user.id },
+    const existingByUserId = await tx.instructor.findFirst({
+      where: { userId: user.id },
     });
     if (existingByUserId) {
       throw makeError(409, "Instructor profile already exists for this user");
@@ -212,35 +212,32 @@ export async function createInstructorWithSync(tx, payload, opts = {}) {
 
   const center = await ensureTrainingCenter(tx, {
     ...payload,
-    full_name: fullName,
+    fullName: fullName,
     city,
     state,
   });
 
-  const instructor = await tx.instructors.create({
+  const instructor = await tx.instructor.create({
     data: {
-      user_id: user?.id ?? null,
-      full_name: fullName,
+      ...(user?.id ? { user: { connect: { id: user.id } } } : {}),
+      fullName: fullName,
       email,
       phone,
       bio,
       city,
       state,
-      profile_photo_url: profilePhotoUrl,
-      is_active: Boolean(isActive),
-      can_login: Boolean(canLogin),
-      training_center_id: center?.id ?? null,
-      training_center_name: center?.name ?? cleanOptional(payload.training_center_name ?? payload.trainingCenterName, 255),
-      preferred_discipline: preferredDiscipline,
+      profilePhotoUrl: profilePhotoUrl,
+      isActive: Boolean(isActive),
+      canLogin: Boolean(canLogin),
     },
   });
 
   if (user) {
     const instructorRole = await ensureInstructorRole(tx);
-    await tx.user_roles.create({
+    await tx.userRole.create({
       data: {
-        user_id: user.id,
-        role_id: instructorRole.id,
+        userId: user.id,
+        roleId: instructorRole.id,
       },
     }).catch(async (err) => {
       // Ignore duplicate role assignment errors from unique constraint.
