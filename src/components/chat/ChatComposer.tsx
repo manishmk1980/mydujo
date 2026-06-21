@@ -14,7 +14,7 @@ export function ChatComposer({
   adminTheme = false,
 }: {
   onSend: (text: string, internal: boolean, replyToMessageId?: string) => Promise<void>;
-  onUpload: (file: File) => void;
+  onUpload?: (file: File) => void;
   busy?: boolean;
   allowInternal?: boolean;
   replyTo?: ChatMessage | null;
@@ -49,7 +49,7 @@ export function ChatComposer({
         </label>
       )}
       <div className="flex items-end gap-2">
-        <ChatAttachmentUploader onUpload={onUpload} busy={busy} />
+        {onUpload ? <ChatAttachmentUploader onUpload={onUpload} busy={busy} /> : null}
         <textarea
           value={text}
           maxLength={4000}

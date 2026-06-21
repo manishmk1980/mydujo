@@ -29,6 +29,10 @@ const requireAdmin = [
     : res.status(403).json({ error: "Admin access required" }),
 ];
 
+async function currentInstructor(userId) {
+  return prisma.instructor.findUnique({ where: { userId } });
+}
+
 const clean = (value, max = 255) => {
   const text = String(value ?? "").trim();
   return text ? text.slice(0, max) : null;
@@ -269,6 +273,81 @@ router.post("/public/threads/:threadId/handoff", async (req, res) => {
     prisma.chatMessage.create({ data: { threadId: thread.id, senderType: "BOT", messageType: "BOT_HANDOFF", messageText: "A member of the MDPL team has been requested.", isRead: true } }),
   ]);
   return res.json({ ok: true });
+});
+
+router.get("/instructor/thread", requireAuth, async (req, res) => {
+  try {
+    const instructor = await currentInstructor(req.auth.userId);
+    if (!instructor) return res.status(403).json({ error: "Instructor access required" });
+    const thread = await prisma.chatThread.findFirst({
+      where: { instructorId: instructor.id, sourceType: "INSTRUCTOR_SUPPORT" },
+      include: { assignedAdmin: true },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!thread) return res.json({ thread: null, messages: [] });
+    const messages = await prisma.chatMessage.findMany({
+      where: { threadId: thread.id, isInternal: false },
+      include: messageInclude,
+      orderBy: { createdAt: "asc" },
+    });
+    await prisma.chatMessage.updateMany({
+      where: { threadId: thread.id, senderType: "ADMIN", isInternal: false },
+      data: { isRead: true },
+    });
+    return res.json({ thread: threadDto(thread), messages: messages.map(messageDto) });
+  } catch (error) {
+    console.error("GET /chat/instructor/thread error:", error);
+    return res.status(500).json({ error: "Unable to load instructor messages" });
+  }
+});
+
+router.post("/instructor/thread/messages", requireAuth, async (req, res) => {
+  try {
+    const instructor = await currentInstructor(req.auth.userId);
+    if (!instructor) return res.status(403).json({ error: "Instructor access required" });
+    const text = messageText(req.body?.message_text);
+    if (!text) return res.status(400).json({ error: "Message is required" });
+    let thread = await prisma.chatThread.findFirst({
+      where: { instructorId: instructor.id, sourceType: "INSTRUCTOR_SUPPORT" },
+    });
+    if (!thread) {
+      thread = await prisma.chatThread.create({
+        data: {
+          publicToken: randomBytes(32).toString("hex"),
+          visitorName: instructor.fullName,
+          visitorEmail: instructor.email,
+          visitorPhone: instructor.phone,
+          visitorRole: "INSTRUCTOR",
+          userId: req.auth.userId,
+          instructorId: instructor.id,
+          sourceType: "INSTRUCTOR_SUPPORT",
+          sourcePage: "/instructor/messages",
+          subject: "Instructor operations support",
+          status: "WAITING_FOR_ADMIN",
+          botEnabled: false,
+        },
+      });
+    }
+    const message = await prisma.chatMessage.create({
+      data: {
+        threadId: thread.id,
+        senderType: "INSTRUCTOR",
+        senderUserId: req.auth.userId,
+        messageType: /^https?:\/\//i.test(text) ? "URL" : "TEXT",
+        messageText: text,
+      },
+      include: messageInclude,
+    });
+    const updated = await prisma.chatThread.update({
+      where: { id: thread.id },
+      data: { status: "WAITING_FOR_ADMIN", lastMessageAt: new Date() },
+      include: { assignedAdmin: true },
+    });
+    return res.status(201).json({ thread: threadDto(updated), message: messageDto(message) });
+  } catch (error) {
+    console.error("POST /chat/instructor/thread/messages error:", error);
+    return res.status(500).json({ error: "Unable to send instructor message" });
+  }
 });
 
 router.post("/admin/presence", ...requireAdmin, async (req, res) => {

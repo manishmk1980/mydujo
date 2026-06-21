@@ -55,13 +55,22 @@ The instructor dashboard should organize work center-first:
 2. students scoped to those centers or direct assignments;
 3. attendance, grading, and classes allowed by capability;
 4. recent activity and pending work;
-5. professional/public profile completion.
+5. professional/public profile completion;
+6. private instructor-to-administration operational messages.
 
 Every write operation must validate authority on the server. Hiding a UI button is not authorization.
 
+## Implemented operational safeguards
+
+- Class/session creation is restricted to centers with class-management authority.
+- Grading updates require a direct student assignment or grading authority for the student's center.
+- Attendance review requires a direct assignment or attendance authority for the related center.
+- Instructor student responses use a limited operational DTO and omit identity documents, guardian details, addresses, and payment data.
+- Authenticated instructor messages appear in the existing Admin Chat queue as instructor support conversations.
+
 ## Recommended next expansion
 
-- Add class/session creation and grading write APIs using the same center capability checks.
+- Add class editing/cancellation and richer schedule recurrence.
 - Add per-center activity summaries and a center switcher when operational volume grows.
 - Add certification and experience tables rather than embedding verification data in biography text.
 - Add audit history for authority changes.

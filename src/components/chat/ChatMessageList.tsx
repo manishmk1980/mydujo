@@ -29,7 +29,9 @@ export function ChatMessageList({
           </div>
           <div className="space-y-3">
             {group.messages.map((message) => {
-              const mine = adminView ? message.sender_type === 'ADMIN' : message.sender_type === 'VISITOR';
+              const mine = adminView
+                ? message.sender_type === 'ADMIN'
+                : ['VISITOR', 'INSTRUCTOR', 'STUDENT'].includes(message.sender_type);
               const systemLike = ['SYSTEM', 'BOT'].includes(message.sender_type) || message.is_internal;
               return (
                 <div key={message.id} className={`group flex ${mine && !systemLike ? 'justify-end' : 'justify-start'}`}>

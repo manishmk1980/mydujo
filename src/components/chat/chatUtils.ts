@@ -40,6 +40,7 @@ export function getSenderLabel(message: ChatMessage, adminView = false) {
   if (message.sender_type === 'BOT') return 'MDPL Assistant';
   if (message.sender_type === 'SYSTEM') return 'System';
   if (message.sender_type === 'VISITOR') return adminView ? 'Visitor' : 'You';
+  if (message.sender_type === 'INSTRUCTOR') return adminView ? 'Instructor' : 'You';
   return message.sender_type.replaceAll('_', ' ');
 }
 

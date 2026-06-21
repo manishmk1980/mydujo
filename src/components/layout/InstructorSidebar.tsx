@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, ClipboardList, Medal, User, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, ClipboardList, Medal, User, LogOut, MessageSquareText, CalendarDays } from 'lucide-react';
 import { CollapsibleSidebarShell } from './CollapsibleSidebarShell';
 import { SidebarNavItem } from './SidebarNavItem';
 import mdplLogo from '@/assets/logo/mdpl-hr-logo.svg';
@@ -11,8 +11,10 @@ import { useAuth } from '../../context/AuthContext';
 const NAV = [
   { to: '/instructor', label: 'Dashboard', icon: LayoutDashboard, match: (p: string) => p === '/instructor' || p === '/instructor/' },
   { to: '/instructor/students', label: 'Students', icon: Users, match: (p: string) => p.startsWith('/instructor/students') },
+  { to: '/instructor/classes', label: 'Classes', icon: CalendarDays, match: (p: string) => p.startsWith('/instructor/classes') },
   { to: '/instructor/attendance', label: 'Attendance', icon: ClipboardList, match: (p: string) => p.startsWith('/instructor/attendance') },
   { to: '/instructor/grading', label: 'Grading', icon: Medal, match: (p: string) => p.startsWith('/instructor/grading') },
+  { to: '/instructor/messages', label: 'Messages', icon: MessageSquareText, match: (p: string) => p.startsWith('/instructor/messages') },
   { to: '/instructor/profile', label: 'Profile', icon: User, match: (p: string) => p.startsWith('/instructor/profile') },
 ];
 

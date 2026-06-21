@@ -23,10 +23,10 @@ import { instructorService, type Instructor } from '../../services/instructorSer
 import { trainingCenterService, type TrainingCenter } from '../../services/trainingCenterService';
 import { metaService, type DisciplineOption } from '../../services/metaService';
 import { storageService } from '../../services/storageService';
-import { authService } from '../../services/authService';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { cn } from '../../lib/utils';
 import { InstructorDetailModal } from '../../components/admin/instructors/InstructorDetailModal';
+import { parseInstructorBioSections } from '../../utils/instructorVerification';
 
 type InstructorExt = Instructor & { _count?: { students: number; classes: number; centers?: number } };
 
@@ -122,9 +122,9 @@ function CreateInstructorPanel({
 
 // ─── Action menu ──────────────────────────────────────────────────────────────
 
-function InstructorMenu({ onView, onEdit, onAssign, onPause, onDelete, isActive }: {
+function InstructorMenu({ onView, onEdit, onAssign, onPause, onDelete, isActive, canManageAccount }: {
   onView: () => void; onEdit: () => void; onAssign: () => void;
-  onPause: () => void; onDelete: () => void; isActive: boolean;
+  onPause: () => void; onDelete: () => void; isActive: boolean; canManageAccount: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -137,9 +137,11 @@ function InstructorMenu({ onView, onEdit, onAssign, onPause, onDelete, isActive 
   const items = [
     { label: 'View profile', icon: Eye, action: onView },
     { label: 'Edit', icon: Edit, action: onEdit },
-    { label: 'Assign center / discipline', icon: MapPin, action: onAssign },
-    { label: isActive ? 'Suspend access' : 'Restore access', icon: isActive ? Pause : CheckCircle2, action: onPause },
-    { label: 'Delete', icon: Trash2, action: onDelete },
+    ...(canManageAccount ? [
+      { label: 'Assign centers', icon: MapPin, action: onAssign },
+      { label: isActive ? 'Suspend access' : 'Restore access', icon: isActive ? Pause : CheckCircle2, action: onPause },
+      { label: 'Delete', icon: Trash2, action: onDelete },
+    ] : []),
   ];
 
   return (
@@ -242,6 +244,72 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function EditInstructorModal({ instructor, saving, onClose, onSave }: {
+  instructor: InstructorExt;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (data: { fullName: string; phone: string; city: string; state: string; internalNote: string }) => void;
+}) {
+  const [form, setForm] = useState({
+    fullName: instructor.fullName,
+    phone: instructor.phone || '',
+    city: instructor.city || '',
+    state: instructor.state || '',
+    internalNote: parseInstructorBioSections(instructor.bio).cleanBio || '',
+  });
+  const valid = form.fullName.trim().length > 1
+    && (!form.phone.trim() || /^[+]?[\d\s().-]{7,20}$/.test(form.phone.trim()));
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="edit-instructor-title">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="edit-instructor-title" className="text-lg font-black text-slate-900">Edit instructor details</h2>
+            <p className="mt-1 text-sm text-slate-500">Login email and center responsibilities use separate secured flows.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Close"><X className="size-5" /></button>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <Field label="Full name"><input maxLength={255} className={inputCls} value={form.fullName} onChange={(e) => setForm((value) => ({ ...value, fullName: e.target.value }))} /></Field>
+          <Field label="Phone"><input maxLength={32} className={inputCls} value={form.phone} onChange={(e) => setForm((value) => ({ ...value, phone: e.target.value }))} /></Field>
+          <Field label="City"><input maxLength={128} className={inputCls} value={form.city} onChange={(e) => setForm((value) => ({ ...value, city: e.target.value }))} /></Field>
+          <Field label="State"><input maxLength={128} className={inputCls} value={form.state} onChange={(e) => setForm((value) => ({ ...value, state: e.target.value }))} /></Field>
+          <div className="sm:col-span-2"><Field label="Internal note"><textarea maxLength={512} className={cn(inputCls, 'min-h-24')} value={form.internalNote} onChange={(e) => setForm((value) => ({ ...value, internalNote: e.target.value }))} /></Field></div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700">Cancel</button>
+          <button type="button" disabled={!valid || saving} onClick={() => onSave(form)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--admin-primary)] px-5 text-sm font-black text-white disabled:opacity-50">
+            {saving && <Loader2 className="size-4 animate-spin" />} Save details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TemporaryCredentialsModal({ credentials, onClose }: {
+  credentials: { username: string; temporaryPassword: string; loginUrl: string };
+  onClose: () => void;
+}) {
+  const copyText = `Your MDPL MyDojo instructor login has been enabled.\n\nLogin URL: ${credentials.loginUrl}\nUsername: ${credentials.username}\nTemporary password: ${credentials.temporaryPassword}\n\nPlease sign in and update your profile details.`;
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/70 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+        <h2 className="text-lg font-black text-slate-900">Temporary instructor credentials</h2>
+        <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">This password is shown only once. Copy it now and ask the instructor to change it after login.</p>
+        <div className="mt-4 space-y-3 rounded-xl bg-slate-950 p-4 font-mono text-sm text-white">
+          <div><span className="text-slate-400">Username</span><p className="break-all">{credentials.username}</p></div>
+          <div><span className="text-slate-400">Temporary password</span><p className="break-all text-orange-300">{credentials.temporaryPassword}</p></div>
+        </div>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button type="button" onClick={() => void navigator.clipboard.writeText(copyText)} className="min-h-11 rounded-xl bg-orange-600 px-4 text-sm font-black text-white">Copy credentials</button>
+          <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700">I have copied them</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminInstructors() {
   const navigate = useNavigate();
   const { adminUser } = useAdminAuth();
@@ -260,6 +328,9 @@ export default function AdminInstructors() {
   const [detailInstructor, setDetailInstructor] = useState<InstructorExt | null>(null);
   const [assignInstructor, setAssignInstructor] = useState<InstructorExt | null>(null);
   const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [editInstructor, setEditInstructor] = useState<InstructorExt | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [temporaryCredentials, setTemporaryCredentials] = useState<{ username: string; temporaryPassword: string; loginUrl: string } | null>(null);
 
   const confirm = useAdminConfirm();
 
@@ -398,19 +469,43 @@ export default function AdminInstructors() {
 
   const handleResetPassword = async (i: InstructorExt) => {
     const ok = await confirm({
-      title: 'Send password reset?',
-      description: `Send a password reset link to ${i.email}?`,
-      confirmLabel: 'Send link',
+      title: 'Create a temporary password?',
+      description: 'This creates a new secure temporary password. The old password and active sessions will stop working. Continue?',
+      confirmLabel: 'Reset password',
       cancelLabel: 'Cancel',
-      variant: 'default',
+      variant: 'warning',
     });
     if (!ok) return;
     try {
-      const { error } = await authService.resetPasswordForEmail(i.email);
-      if (error) throw new Error(error.message);
-      showFlash('Password reset link sent.');
+      const credentials = await instructorService.resetInstructorPassword(i.id);
+      setTemporaryCredentials(credentials);
+      setInstructors((previous) => previous.map((item) => item.id === i.id ? { ...item, isActive: true, canLogin: true } : item));
+      setDetailInstructor((current) => current?.id === i.id ? { ...current, isActive: true, canLogin: true } : current);
     } catch (e) {
-      showFlash(e instanceof Error ? e.message : 'Failed to send reset link.', 'error');
+      showFlash(e instanceof Error ? e.message : 'Failed to reset password.', 'error');
+    }
+  };
+
+  const handleEditSave = async (data: { fullName: string; phone: string; city: string; state: string; internalNote: string }) => {
+    if (!editInstructor) return;
+    setEditSubmitting(true);
+    try {
+      const updated = await instructorService.updateInstructorDetails(editInstructor.id, {
+        fullName: data.fullName.trim(),
+        phone: data.phone.trim() || null,
+        city: data.city.trim() || null,
+        state: data.state.trim() || null,
+        internalNote: data.internalNote.trim() || null,
+      });
+      const next = { ...editInstructor, ...updated };
+      setInstructors((previous) => previous.map((item) => item.id === next.id ? { ...item, ...next } : item));
+      setDetailInstructor((current) => current?.id === next.id ? { ...current, ...next } : current);
+      setEditInstructor(null);
+      showFlash('Instructor details updated.');
+    } catch (error) {
+      showFlash(error instanceof Error ? error.message : 'Failed to update instructor.', 'error');
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -432,9 +527,9 @@ export default function AdminInstructors() {
             <button type="button" onClick={() => void fetchAll()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
               <RefreshCw className="size-4" /> Refresh
             </button>
-            <button type="button" onClick={() => setShowForm((s) => !s)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--admin-primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)]">
+            {canPublish && <button type="button" onClick={() => setShowForm((s) => !s)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--admin-primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--admin-primary-hover)]">
               <Plus className="size-4" /> Add instructor
-            </button>
+            </button>}
           </div>
       </div>
 
@@ -538,8 +633,9 @@ export default function AdminInstructors() {
                     <button onClick={() => setDetailInstructor(i)} className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">View</button>
                     <InstructorMenu
                       isActive={i.isActive}
+                      canManageAccount={canPublish}
                       onView={() => setDetailInstructor(i)}
-                      onEdit={() => showFlash('Edit form — coming soon (backend update endpoint pending).', 'error')}
+                      onEdit={() => setEditInstructor(i)}
                       onAssign={() => { setAssignInstructor(i); setDetailInstructor(null); }}
                       onPause={() => void handlePause(i)}
                       onDelete={() => void handleDelete(i)}
@@ -557,7 +653,7 @@ export default function AdminInstructors() {
         <InstructorDetailModal
           instructor={detailInstructor}
           onClose={() => setDetailInstructor(null)}
-          onEdit={() => showFlash('Edit form — coming soon (backend update endpoint pending).', 'error')}
+          onEdit={() => setEditInstructor(detailInstructor)}
           onAssign={() => { setAssignInstructor(detailInstructor); setDetailInstructor(null); }}
           onSuspend={() => void handlePause(detailInstructor)}
           onResetPassword={() => void handleResetPassword(detailInstructor)}
@@ -585,6 +681,17 @@ export default function AdminInstructors() {
           trainingCenters={trainingCenters}
           submitting={assignSubmitting}
         />
+      )}
+      {editInstructor && (
+        <EditInstructorModal
+          instructor={editInstructor}
+          saving={editSubmitting}
+          onClose={() => setEditInstructor(null)}
+          onSave={(data) => void handleEditSave(data)}
+        />
+      )}
+      {temporaryCredentials && (
+        <TemporaryCredentialsModal credentials={temporaryCredentials} onClose={() => setTemporaryCredentials(null)} />
       )}
     </PageContainer>
   );

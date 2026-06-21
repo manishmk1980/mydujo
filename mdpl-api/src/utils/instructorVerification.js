@@ -76,4 +76,22 @@ export function upsertAdminReviewBlock(bio, note) {
   return parts.filter(Boolean).join("\n\n").trim() || null;
 }
 
+export function replaceInstructorCleanBio(bio, cleanBio) {
+  const { verification, adminReview } = parseInstructorBioSections(bio);
+  const verificationBlock = verification
+    ? `${VERIFICATION_MARKER}\n${[
+        verification.idType ? `ID Type: ${verification.idType}` : null,
+        verification.idNumber ? `ID Number: ${verification.idNumber}` : null,
+        verification.idDocumentUrl ? `ID Document URL: ${verification.idDocumentUrl}` : null,
+        verification.yearsExperience ? `Years of experience: ${verification.yearsExperience}` : null,
+        verification.declarationAcceptedAt ? `Declaration accepted at: ${verification.declarationAcceptedAt}` : null,
+      ].filter(Boolean).join("\n")}`
+    : null;
+  return [
+    verificationBlock,
+    adminReview ? `${ADMIN_REVIEW_MARKER}\n${adminReview}` : null,
+    String(cleanBio || "").trim() || null,
+  ].filter(Boolean).join("\n\n").trim() || null;
+}
+
 /** TODO(schema): Move onboarding verification details out of Instructor.bio into dedicated application/verification fields. */

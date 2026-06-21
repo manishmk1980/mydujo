@@ -389,7 +389,13 @@ export function InstructorDetailModal({
               </SectionCard>
             )}
 
-            <SectionCard title="Account approval status" description="Account approval enables login. It is separate from public profile publishing.">
+            <SectionCard title="Instructor Account" description="Account approval and login access are separate from public profile publishing. Existing passwords are never readable or displayed.">
+              <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <InfoTile label="Login username" value={instructor.email} />
+                <InfoTile label="Account status" value={instructor.isActive ? 'Active' : approvalStatus === 'REJECTED' ? 'Rejected' : approvalStatus === 'PENDING_REVIEW' ? 'Pending' : 'Suspended'} />
+                <InfoTile label="Login access" value={instructor.canLogin ? 'Enabled' : 'Disabled'} />
+                <InfoTile label="Last login" value={instructor.lastLoginAt ? new Date(instructor.lastLoginAt).toLocaleString() : 'Never'} />
+              </div>
               <div className="flex flex-wrap gap-2">
                 <AdminBadge variant={approvalBadgeVariant(approvalStatus)} size="sm">{formatApprovalStatus(approvalStatus)}</AdminBadge>
                 {instructor.canLogin ? <AdminBadge variant="success" size="sm">Login enabled</AdminBadge> : <AdminBadge variant="neutral" size="sm">Login disabled</AdminBadge>}
@@ -411,18 +417,20 @@ export function InstructorDetailModal({
 
         <footer className="sticky bottom-0 shrink-0 border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
           <div className="space-y-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Account review</p>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              <ActionButton icon={ShieldCheck} label="Approve account" onClick={() => void approveAccount()} disabled={actionBusy || approvalStatus === 'APPROVED'} tone="primary" />
-              <ActionButton icon={MessageSquare} label="Request info" onClick={() => setRequestNoteOpen(true)} disabled={actionBusy} tone="info" />
-              <ActionButton icon={XCircle} label="Reject" onClick={() => void rejectApplication()} disabled={actionBusy} tone="danger" />
-              <ActionButton icon={PauseCircle} label={instructor.isActive ? 'Suspend access' : 'Restore access'} onClick={onSuspend} disabled={actionBusy} tone="warning" />
-            </div>
+            {canPublish && <>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Account review</p>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                <ActionButton icon={ShieldCheck} label="Approve account" onClick={() => void approveAccount()} disabled={actionBusy || approvalStatus === 'APPROVED'} tone="primary" />
+                <ActionButton icon={MessageSquare} label="Request info" onClick={() => setRequestNoteOpen(true)} disabled={actionBusy} tone="info" />
+                <ActionButton icon={XCircle} label="Reject" onClick={() => void rejectApplication()} disabled={actionBusy} tone="danger" />
+                <ActionButton icon={PauseCircle} label={instructor.isActive ? 'Suspend access' : 'Restore access'} onClick={onSuspend} disabled={actionBusy} tone="warning" />
+              </div>
+            </>}
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Operations</p>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <ActionButton icon={Edit} label="Edit" onClick={onEdit} tone="neutral" />
-              <ActionButton icon={MapPin} label="Assign centers" onClick={onAssign} tone="neutral" />
-              <ActionButton icon={Key} label="Reset password" onClick={onResetPassword} tone="neutral" />
+              {canPublish && <ActionButton icon={MapPin} label="Assign centers" onClick={onAssign} tone="neutral" />}
+              {canPublish && <ActionButton icon={Key} label="Reset password" onClick={onResetPassword} tone="neutral" />}
               {canPublish && <ActionButton icon={Trash2} label="Delete" onClick={onDelete} tone="danger" />}
             </div>
           </div>

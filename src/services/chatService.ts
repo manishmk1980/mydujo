@@ -1,5 +1,5 @@
 import { API_BASE } from '../config';
-import { getAdminToken } from '../lib/authTokens';
+import { getAdminToken, getPortalToken } from '../lib/authTokens';
 
 export type ChatStatus = 'NEW' | 'OPEN' | 'ASSIGNED' | 'WAITING_FOR_VISITOR' | 'WAITING_FOR_ADMIN' | 'RESOLVED' | 'CLOSED' | 'SPAM';
 export type ChatRole = 'PARENT' | 'STUDENT' | 'INSTRUCTOR' | 'ACADEMY' | 'OTHER';
@@ -28,7 +28,7 @@ export type ChatMessage = {
   forwarded_from?: ChatMessagePreview | null;
   metadata_json?: Record<string, unknown>;
   created_at: string;
-  attachments: ChatAttachment[];
+  attachments?: ChatAttachment[];
 };
 
 export type ChatAttachment = {
@@ -83,6 +83,10 @@ const adminHeaders = () => ({
   Authorization: `Bearer ${getAdminToken() || ''}`,
   'Content-Type': 'application/json',
 });
+const portalHeaders = () => ({
+  Authorization: `Bearer ${getPortalToken() || ''}`,
+  'Content-Type': 'application/json',
+});
 
 const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
@@ -120,6 +124,16 @@ export const chatService = {
       file_mime_type: file.type,
       content: await fileToBase64(file),
     })),
+
+  getInstructorThread: () =>
+    request<{ thread: ChatThread | null; messages: ChatMessage[] }>('/instructor/thread', {
+      headers: portalHeaders(),
+    }),
+
+  sendInstructorMessage: (message_text: string) =>
+    request<{ thread: ChatThread; message: ChatMessage }>('/instructor/thread/messages', json({
+      message_text,
+    }, portalHeaders())),
 
   sendAdminHeartbeat: () =>
     request<{ ok: boolean; last_seen_at: string; status: ChatPresenceStatus }>('/admin/presence', json({}, adminHeaders())),

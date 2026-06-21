@@ -22,6 +22,7 @@ export interface Instructor {
   approvalStatus?: string;
   approvedAt?: string | null;
   createdAt?: string;
+  lastLoginAt?: string | null;
   applicationReviewNote?: string | null;
   publicProfileEnabled?: boolean;
   publicDisplayName?: string | null;
@@ -104,8 +105,13 @@ export interface AssignedStudent {
   gradingProgress?: {
     syllabusCompletionPercent: number;
     readinessStatus?: string;
+    instructorNotes?: string;
   };
   trainingCenter?: { id: string; name: string } | null;
+  permissions?: {
+    canManageGrading: boolean;
+    canManageAttendance: boolean;
+  };
 }
 
 export interface DashboardStats {
@@ -247,6 +253,100 @@ export const instructorService = {
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || 'Failed to update instructor');
     return result.instructor as Instructor;
+  },
+
+  async getMyClasses() {
+    const res = await fetch(`${API_BASE}/instructors/me/classes`, {
+      headers: getPortalAuthHeaders(),
+      credentials: 'include',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Failed to load classes');
+    return (data.classes || []) as Array<{
+      id: string;
+      title: string;
+      classType?: string | null;
+      discipline?: string | null;
+      sessionDate: string;
+      startTime?: string | null;
+      endTime?: string | null;
+      status: string;
+      notes?: string | null;
+      trainingCenter?: { id: string; name: string } | null;
+      _count?: { attendance: number };
+    }>;
+  },
+
+  async createMyClass(data: {
+    title: string;
+    trainingCenterId: string;
+    sessionDate: string;
+    startTime?: string | null;
+    endTime?: string | null;
+    classType?: string | null;
+    discipline?: string | null;
+    notes?: string | null;
+  }) {
+    const res = await fetch(`${API_BASE}/instructors/me/classes`, {
+      method: 'POST',
+      headers: getPortalAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to create class');
+    return result.classSession;
+  },
+
+  async updateStudentGrading(studentId: string, data: {
+    syllabusCompletionPercent: number;
+    readinessStatus?: string | null;
+    instructorNotes?: string | null;
+  }) {
+    const res = await fetch(`${API_BASE}/instructors/me/students/${encodeURIComponent(studentId)}/grading`, {
+      method: 'PATCH',
+      headers: getPortalAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to update grading progress');
+    return result.gradingProgress;
+  },
+
+  async updateInstructorDetails(id: string, data: {
+    fullName: string;
+    phone?: string | null;
+    city?: string | null;
+    state?: string | null;
+    internalNote?: string | null;
+  }) {
+    const res = await fetch(`${API_BASE}/admin/instructors/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: getAdminAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to update instructor');
+    return result.instructor as Partial<Instructor>;
+  },
+
+  async resetInstructorPassword(id: string, temporaryPassword?: string) {
+    const res = await fetch(`${API_BASE}/admin/instructors/${encodeURIComponent(id)}/reset-password`, {
+      method: 'POST',
+      headers: getAdminAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(temporaryPassword ? { temporaryPassword } : {}),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to reset instructor password');
+    return result as {
+      username: string;
+      temporaryPassword: string;
+      loginUrl: string;
+      warning: string;
+    };
   },
 
   async updateApplicationStatus(

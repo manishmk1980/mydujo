@@ -8,22 +8,28 @@ import {
     Filter,
     Users,
     Loader2,
-    ArrowRight
+    ArrowRight,
+    X
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { instructorService, AssignedStudent } from '../../services/instructorService';
 import { cn } from '../../lib/utils';
+import { useFlashToast } from '../../components/ui/FlashToast';
 
 /**
  * Instructor-admin grading page. Review student readiness for rank tests
  * and update grading-related progress for assigned students.
  */
 export default function InstructorGrading() {
+    const toast = useFlashToast();
     const [students, setStudents] = useState<AssignedStudent[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [editing, setEditing] = useState<AssignedStudent | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [gradingForm, setGradingForm] = useState({ percentage: 0, readinessStatus: '', instructorNotes: '' });
 
     useEffect(() => {
         async function fetchGradingData() {
@@ -48,6 +54,34 @@ export default function InstructorGrading() {
         { label: 'Pending Notes', value: students.filter(s => !s.gradingProgress?.readinessStatus).length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
         { label: 'Upcoming Candidates', value: students.length, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
     ];
+
+    const openGrading = (student: AssignedStudent) => {
+        setEditing(student);
+        setGradingForm({
+            percentage: student.gradingProgress?.syllabusCompletionPercent ?? 0,
+            readinessStatus: student.gradingProgress?.readinessStatus || '',
+            instructorNotes: student.gradingProgress?.instructorNotes || '',
+        });
+    };
+
+    const saveGrading = async () => {
+        if (!editing) return;
+        setSaving(true);
+        try {
+            const progress = await instructorService.updateStudentGrading(editing.id, {
+                syllabusCompletionPercent: gradingForm.percentage,
+                readinessStatus: gradingForm.readinessStatus || null,
+                instructorNotes: gradingForm.instructorNotes || null,
+            });
+            setStudents((previous) => previous.map((student) => student.id === editing.id ? { ...student, gradingProgress: progress } : student));
+            setEditing(null);
+            toast.success('Grading progress updated.');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to update grading');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -152,7 +186,7 @@ export default function InstructorGrading() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right pr-6">
-                                                <button className="p-2 text-slate-300 hover:text-primary transition-colors group-hover:translate-x-1 duration-200">
+                                                <button disabled={student.permissions?.canManageGrading === false} onClick={() => openGrading(student)} className="p-2 text-slate-400 hover:text-primary transition-colors group-hover:translate-x-1 duration-200 disabled:cursor-not-allowed disabled:opacity-30" aria-label={`Update grading for ${student.fullName}`}>
                                                     <ArrowRight className="size-4" />
                                                 </button>
                                             </td>
@@ -172,6 +206,19 @@ export default function InstructorGrading() {
                     )}
                 </div>
             </div>
+            {editing && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setEditing(null)}>
+                    <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+                        <div className="flex items-start justify-between gap-3"><div><h2 className="font-black text-slate-900">Update grading</h2><p className="text-sm text-slate-500">{editing.fullName}</p></div><button onClick={() => setEditing(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button></div>
+                        <div className="mt-5 space-y-4">
+                            <label className="block space-y-1 text-sm font-bold text-slate-700">Syllabus completion ({gradingForm.percentage}%)<input type="range" min="0" max="100" value={gradingForm.percentage} onChange={(e) => setGradingForm((value) => ({ ...value, percentage: Number(e.target.value) }))} className="block w-full accent-orange-600" /></label>
+                            <label className="block space-y-1 text-sm font-bold text-slate-700">Readiness status<select value={gradingForm.readinessStatus} onChange={(e) => setGradingForm((value) => ({ ...value, readinessStatus: e.target.value }))} className="block w-full rounded-xl border border-slate-200 px-4 py-3"><option value="">Select status</option><option value="BUILDING_SKILLS">Building skills</option><option value="NEEDS_REVIEW">Needs review</option><option value="READY">Ready</option><option value="NOT_READY">Not ready</option></select></label>
+                            <label className="block space-y-1 text-sm font-bold text-slate-700">Instructor notes<textarea maxLength={512} value={gradingForm.instructorNotes} onChange={(e) => setGradingForm((value) => ({ ...value, instructorNotes: e.target.value }))} className="block min-h-24 w-full rounded-xl border border-slate-200 px-4 py-3" /></label>
+                        </div>
+                        <div className="mt-5 flex justify-end gap-2"><button onClick={() => setEditing(null)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">Cancel</button><button disabled={saving} onClick={() => void saveGrading()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-orange-600 px-5 text-sm font-black text-white disabled:opacity-50">{saving && <Loader2 className="size-4 animate-spin" />} Save grading</button></div>
+                    </div>
+                </div>
+            )}
         </PageContainer>
     );
 }

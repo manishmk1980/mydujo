@@ -16,6 +16,11 @@ import {
 import { parseInstructorBioSections } from "../utils/instructorVerification.js";
 
 const router = Router();
+const cleanOptional = (value, max) => {
+  if (value == null || value === "") return null;
+  const text = String(value).trim();
+  return text ? text.slice(0, max) : null;
+};
 
 /**
  * Middleware to restrict access to Super Admins.
@@ -23,6 +28,14 @@ const router = Router();
 function requireSuperAdmin(req, res, next) {
   const roles = req?.auth?.roles || [];
   if (!roles.includes("SUPER_ADMIN")) {
+    return res.status(403).json({ error: "not authorized" });
+  }
+  return next();
+}
+
+function requireAdmin(req, res, next) {
+  const roles = req?.auth?.roles || [];
+  if (!roles.some((role) => role === "ADMIN" || role === "SUPER_ADMIN")) {
     return res.status(403).json({ error: "not authorized" });
   }
   return next();
@@ -124,11 +137,43 @@ router.get("/my-students", requireAuth, async (req, res) => {
       include: {
         gradingProgress: true,
         trainingCenter: { select: { id: true, name: true } },
+        instructorAssignments: {
+          where: { instructorId: instructor.id },
+          select: { instructorId: true },
+        },
       },
       orderBy: { fullName: "asc" },
     });
 
-    return res.json({ students });
+    const directIds = new Set(
+      students
+        .filter((student) => student.instructorAssignments?.some?.((item) => item.instructorId === instructor.id))
+        .map((student) => student.id),
+    );
+    const gradingCenters = new Set(
+      instructor.centerAssignments.filter((item) => item.canManageGrading).map((item) => item.trainingCenterId),
+    );
+    const attendanceCenters = new Set(
+      instructor.centerAssignments.filter((item) => item.canManageAttendance).map((item) => item.trainingCenterId),
+    );
+    return res.json({
+      students: students.map((student) => ({
+        id: student.id,
+        fullName: student.fullName,
+        email: student.email,
+        phone: student.phone,
+        status: student.status,
+        currentBelt: student.currentBelt,
+        currentRankLabel: student.currentRankLabel,
+        nextGradingDate: student.nextGradingDate,
+        gradingProgress: student.gradingProgress,
+        trainingCenter: student.trainingCenter,
+        permissions: {
+          canManageGrading: directIds.has(student.id) || gradingCenters.has(student.trainingCenterId),
+          canManageAttendance: directIds.has(student.id) || attendanceCenters.has(student.trainingCenterId),
+        },
+      })),
+    });
   } catch (err) {
     console.error("GET /instructors/my-students error:", err);
     return res.status(500).json({ error: "Failed to fetch students" });
@@ -205,10 +250,127 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/me/classes", requireAuth, async (req, res) => {
+  try {
+    const instructor = await getAuthenticatedInstructor(req);
+    if (!instructor) return res.status(404).json({ error: "Instructor not found" });
+    const centerIds = instructor.centerAssignments.map((item) => item.trainingCenterId);
+    const classes = await prisma.classSession.findMany({
+      where: {
+        OR: [
+          { instructorId: instructor.id },
+          ...(centerIds.length ? [{ trainingCenterId: { in: centerIds } }] : []),
+        ],
+      },
+      include: {
+        trainingCenter: { select: { id: true, name: true } },
+        _count: { select: { attendance: true } },
+      },
+      orderBy: [{ sessionDate: "desc" }, { startTime: "desc" }],
+      take: 200,
+    });
+    return res.json({ classes });
+  } catch (error) {
+    console.error("GET /instructors/me/classes error:", error);
+    return res.status(500).json({ error: "Failed to load classes" });
+  }
+});
+
+router.post("/me/classes", requireAuth, async (req, res) => {
+  try {
+    const instructor = await getAuthenticatedInstructor(req);
+    if (!instructor) return res.status(404).json({ error: "Instructor not found" });
+    const title = String(req.body?.title || "").trim().slice(0, 255);
+    const trainingCenterId = String(req.body?.trainingCenterId || "");
+    const sessionDate = new Date(req.body?.sessionDate);
+    if (!title || !trainingCenterId || Number.isNaN(sessionDate.getTime())) {
+      return res.status(400).json({ error: "Title, training center, and session date are required" });
+    }
+    const authority = instructor.centerAssignments.find((item) =>
+      item.trainingCenterId === trainingCenterId && item.canManageClasses
+    );
+    if (!authority) return res.status(403).json({ error: "You are not authorized to manage classes for this center" });
+
+    const startTime = req.body?.startTime ? new Date(req.body.startTime) : null;
+    const endTime = req.body?.endTime ? new Date(req.body.endTime) : null;
+    if ((startTime && Number.isNaN(startTime.getTime())) || (endTime && Number.isNaN(endTime.getTime()))) {
+      return res.status(400).json({ error: "Class start or end time is invalid" });
+    }
+    const row = await prisma.classSession.create({
+      data: {
+        title,
+        classType: cleanOptional(req.body?.classType, 64),
+        trainingCenterId,
+        instructorId: instructor.id,
+        instructorName: instructor.fullName,
+        discipline: cleanOptional(req.body?.discipline, 64),
+        sessionDate,
+        startTime,
+        endTime,
+        notes: cleanOptional(req.body?.notes, 512),
+      },
+      include: { trainingCenter: { select: { id: true, name: true } } },
+    });
+    return res.status(201).json({ classSession: row });
+  } catch (error) {
+    console.error("POST /instructors/me/classes error:", error);
+    return res.status(500).json({ error: "Failed to create class" });
+  }
+});
+
+router.patch("/me/students/:studentId/grading", requireAuth, async (req, res) => {
+  try {
+    const instructor = await getAuthenticatedInstructor(req);
+    if (!instructor) return res.status(404).json({ error: "Instructor not found" });
+    const student = await prisma.student.findUnique({
+      where: { id: req.params.studentId },
+      select: {
+        id: true,
+        trainingCenterId: true,
+        instructorAssignments: { where: { instructorId: instructor.id }, select: { id: true } },
+      },
+    });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+    const direct = student.instructorAssignments.length > 0;
+    const centerAuthority = instructor.centerAssignments.some((item) =>
+      item.trainingCenterId === student.trainingCenterId && item.canManageGrading
+    );
+    if (!direct && !centerAuthority) {
+      return res.status(403).json({ error: "You are not authorized to update grading for this student" });
+    }
+    const percentage = Number(req.body?.syllabusCompletionPercent);
+    if (!Number.isInteger(percentage) || percentage < 0 || percentage > 100) {
+      return res.status(400).json({ error: "Syllabus completion must be a whole number from 0 to 100" });
+    }
+    const gradingProgress = await prisma.gradingProgress.upsert({
+      where: { studentId: student.id },
+      update: {
+        syllabusCompletionPercent: percentage,
+        readinessStatus: cleanOptional(req.body?.readinessStatus, 64),
+        instructorNotes: cleanOptional(req.body?.instructorNotes, 512),
+        reviewedByInstructorId: instructor.id,
+        reviewedAt: new Date(),
+      },
+      create: {
+        studentId: student.id,
+        syllabusCompletionPercent: percentage,
+        readinessStatus: cleanOptional(req.body?.readinessStatus, 64),
+        instructorNotes: cleanOptional(req.body?.instructorNotes, 512),
+        reviewedByInstructorId: instructor.id,
+        reviewedAt: new Date(),
+      },
+    });
+    return res.json({ gradingProgress });
+  } catch (error) {
+    console.error("PATCH /instructors/me/students/:studentId/grading error:", error);
+    return res.status(500).json({ error: "Failed to update grading progress" });
+  }
+});
+
 /**
  * Super admin can fetch all instructors with stats
  */
-router.get("/admin/all", requireAuth, requireSuperAdmin, async (req, res) => {
+router.get("/admin/all", requireAuth, requireAdmin, async (req, res) => {
   try {
     const instructors = await prisma.instructor.findMany({
       include: {
@@ -216,6 +378,7 @@ router.get("/admin/all", requireAuth, requireSuperAdmin, async (req, res) => {
           select: {
             id: true,
             email: true,
+            lastLoginAt: true,
           }
         },
         _count: {
@@ -240,6 +403,7 @@ router.get("/admin/all", requireAuth, requireSuperAdmin, async (req, res) => {
         ...i,
         approvalStatus: i.approvalStatus,
         approvedAt: i.approvedAt,
+        lastLoginAt: i.user?.lastLoginAt ?? null,
         createdAt: i.createdAt,
         publicProfile: serializeInstructorPublicProfile(i),
         assignedCenters: i.centerAssignments.map((assignment) => ({
@@ -350,21 +514,15 @@ router.post("/", requireAuth, requireSuperAdmin, async (req, res) => {
 });
 
 /**
- * Super admin can update instructors
+ * Super admin account-access toggle. Internal profile details use /admin/instructors/:id.
  */
 router.patch("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      fullName,
-      email,
-      phone,
-      bio,
-      city,
-      state,
-      isActive,
-      canLogin
-    } = req.body || {};
+    const { isActive, canLogin } = req.body || {};
+    if (typeof isActive !== "boolean" && typeof canLogin !== "boolean") {
+      return res.status(400).json({ error: "Account access update is required" });
+    }
 
     const existing = await prisma.instructor.findUnique({
       where: { id },
@@ -373,24 +531,18 @@ router.patch("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
 
     if (!existing) return res.status(404).json({ error: "Instructor not found" });
 
+    if (canLogin === true && existing.approvalStatus !== "APPROVED") {
+      return res.status(409).json({ error: "Approve the instructor account before enabling login" });
+    }
     const instructor = await prisma.$transaction(async (tx) => {
-      // If enabling login for the first time and user doesn't exist...
-      // For now, let's keep it simple: profile update only.
-      // Complex user management can be handled in a dedicated route if needed.
-
-      return await tx.instructor.update({
+      const updated = await tx.instructor.update({
         where: { id },
-        data: {
-          fullName,
-          email,
-          phone,
-          bio,
-          city,
-          state,
-          isActive,
-          canLogin
-        }
+        data: { isActive, canLogin },
       });
+      if (existing.userId && isActive === false) {
+        await tx.refreshToken.deleteMany({ where: { userId: existing.userId } });
+      }
+      return updated;
     });
 
     return res.json({ instructor });

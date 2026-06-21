@@ -70,6 +70,8 @@ import InstructorStudents from './pages/instructor/InstructorStudents';
 import InstructorAttendance from './pages/instructor/InstructorAttendance';
 import InstructorGrading from './pages/instructor/InstructorGrading';
 import InstructorProfile from './pages/instructor/InstructorProfile';
+import InstructorMessages from './pages/instructor/InstructorMessages';
+import InstructorClasses from './pages/instructor/InstructorClasses';
 import InstructorLoginPage from './pages/instructor/InstructorLoginPage';
 import StudentLoginPage from './pages/student/StudentLoginPage';
 
@@ -163,8 +165,10 @@ export default function App() {
                   >
                     <Route index element={<InstructorDashboard />} />
                     <Route path="students" element={<InstructorStudents />} />
+                    <Route path="classes" element={<InstructorClasses />} />
                     <Route path="attendance" element={<InstructorAttendance />} />
                     <Route path="grading" element={<InstructorGrading />} />
+                    <Route path="messages" element={<InstructorMessages />} />
                     <Route path="profile" element={<InstructorProfile />} />
                   </Route>
 
