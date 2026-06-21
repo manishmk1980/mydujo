@@ -6,7 +6,7 @@ import { Router } from "express";
 import argon2 from "argon2";
 import nodemailer from "nodemailer";
 import { prisma } from "../db.js";
-import { createInstructorWithSync, ensureInstructorDisciplineColumn } from "../services/instructorRegistration.js";
+import { createInstructorWithSync } from "../services/instructorRegistration.js";
 
 const router = Router();
 
@@ -154,56 +154,55 @@ router.post("/register", async (req, res) => {
       const user = await tx.user.create({
         data: {
           email,
-          password_hash: passwordHash,
-          updated_at: now,
+          passwordHash,
+          updatedAt: now,
         },
       });
 
       await tx.userRole.create({
         data: {
-          user_id: user.id,
-          role_id: studentRole.id,
+          userId: user.id,
+          roleId: studentRole.id,
         },
       });
 
       const student = await tx.student.create({
         data: {
-          users: {
+          user: {
             connect: { id: user.id },
           },
           ...(training_center_id
             ? {
-                training_centers: {
+                trainingCenter: {
                   connect: { id: training_center_id },
                 },
               }
             : {}),
-          full_name,
+          fullName: full_name,
           email,
           phone,
           gender,
-          date_of_birth,
-          parent_guardian_name,
-          emergency_contact,
-          preferred_discipline: preferred_discipline ?? null,
-          training_center_name,
-          marketing_opt_in,
-          terms_accepted_at,
+          dateOfBirth: date_of_birth,
+          parentGuardianName: parent_guardian_name,
+          emergencyContact: emergency_contact,
+          preferredDiscipline: preferred_discipline ?? null,
+          marketingOptIn: marketing_opt_in,
+          termsAcceptedAt: terms_accepted_at,
           status: "pending",
-          blood_group: body.blood_group != null && body.blood_group !== "" ? String(body.blood_group).trim() : null,
-          aadhar_number: body.aadhar_number != null && body.aadhar_number !== "" ? String(body.aadhar_number).trim() : null,
+          bloodGroup: body.blood_group != null && body.blood_group !== "" ? String(body.blood_group).trim() : null,
+          aadharNumber: body.aadhar_number != null && body.aadhar_number !== "" ? String(body.aadhar_number).trim() : null,
           qualification: body.qualification != null && body.qualification !== "" ? String(body.qualification).trim() : null,
           address: body.address != null && body.address !== "" ? String(body.address).trim() : null,
           pincode: body.pincode != null && body.pincode !== "" ? String(body.pincode).trim() : null,
           city: body.city != null && body.city !== "" ? String(body.city).trim() : null,
           state: body.state != null && body.state !== "" ? String(body.state).trim() : null,
           locality: body.locality != null && body.locality !== "" ? String(body.locality).trim() : null,
-          school_college_name: body.school_college_name != null && body.school_college_name !== "" ? String(body.school_college_name).trim() : null,
-          school_college_location_city: body.school_college_location_city != null && body.school_college_location_city !== "" ? String(body.school_college_location_city).trim() : null,
-          school_college_location_state: body.school_college_location_state != null && body.school_college_location_state !== "" ? String(body.school_college_location_state).trim() : null,
-          school_college_location_pin: body.school_college_location_pin != null && body.school_college_location_pin !== "" ? String(body.school_college_location_pin).trim() : null,
-          instructor_name: body.instructor_name != null && body.instructor_name !== "" ? String(body.instructor_name).trim() : null,
-          profile_photo_url: body.profile_photo_url != null && body.profile_photo_url !== "" ? String(body.profile_photo_url).trim() : null,
+          schoolCollegeName: body.school_college_name != null && body.school_college_name !== "" ? String(body.school_college_name).trim() : null,
+          schoolCollegeLocationCity: body.school_college_location_city != null && body.school_college_location_city !== "" ? String(body.school_college_location_city).trim() : null,
+          schoolCollegeLocationState: body.school_college_location_state != null && body.school_college_location_state !== "" ? String(body.school_college_location_state).trim() : null,
+          schoolCollegeLocationPin: body.school_college_location_pin != null && body.school_college_location_pin !== "" ? String(body.school_college_location_pin).trim() : null,
+          instructorName: body.instructor_name != null && body.instructor_name !== "" ? String(body.instructor_name).trim() : null,
+          profilePhotoUrl: body.profile_photo_url != null && body.profile_photo_url !== "" ? String(body.profile_photo_url).trim() : null,
         },
       });
 
@@ -215,10 +214,10 @@ router.post("/register", async (req, res) => {
       student: {
         id: result.student.id,
         user_id: result.user.id,
-        full_name: result.student.full_name,
+        full_name: result.student.fullName,
         email: result.student.email,
         phone: result.student.phone,
-        training_center_id: result.student.training_center_id,
+        training_center_id: result.student.trainingCenterId,
         status: result.student.status,
       },
     });
@@ -238,7 +237,6 @@ router.post("/register", async (req, res) => {
  */
 router.post("/register/instructor", async (req, res) => {
   try {
-    await ensureInstructorDisciplineColumn(prisma);
     const body = req.body || {};
     const idType = body.id_type != null ? String(body.id_type).trim() : "";
     const idNumber = body.id_number != null ? String(body.id_number).trim() : "";
@@ -286,11 +284,11 @@ router.post("/register/instructor", async (req, res) => {
       instructor: {
         id: result.instructor.id,
         user_id: result.user?.id ?? null,
-        full_name: result.instructor.full_name,
+        full_name: result.instructor.fullName,
         email: result.instructor.email,
-        training_center_id: result.instructor.training_center_id ?? null,
-        training_center_name: result.instructor.training_center_name ?? null,
-        preferred_discipline: result.instructor.preferred_discipline ?? null,
+        training_center_id: result.center?.id ?? null,
+        training_center_name: result.center?.name ?? null,
+        preferred_discipline: result.instructor.preferredDiscipline ?? null,
       },
     });
   } catch (err) {

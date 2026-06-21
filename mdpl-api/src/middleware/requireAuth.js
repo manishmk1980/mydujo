@@ -15,18 +15,21 @@ export function requireAuth(req, res, next) {
     }
 
     const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    if (!payload || typeof payload !== "object" || typeof payload.sub !== "string" || !payload.sub) {
+      return res.status(401).json({ error: "Invalid or expired access token" });
+    }
+    const roles = Array.isArray(payload.roles)
+      ? payload.roles.filter((role) => typeof role === "string")
+      : [];
 
     req.auth = {
       userId: payload.sub,
-      email: payload.email,
-      roles: payload.roles || [],
+      email: typeof payload.email === "string" ? payload.email : null,
+      roles,
     };
 
     next();
-  } catch (err) {
-    return res.status(401).json({
-      error: "Invalid or expired access token",
-      details: err.message,
-    });
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired access token" });
   }
 }

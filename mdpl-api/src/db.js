@@ -1,18 +1,8 @@
-﻿import path from "node:path";
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
 import prismaPkg from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import "./config/env.js";
 
 const { PrismaClient } = prismaPkg;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Force this service to use mdpl-api/.env values, even if process manager
-// has stale DB_* vars from another environment.
-dotenv.config({ path: path.resolve(__dirname, "../.env"), override: true });
-
 const requiredEnv = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
 
 for (const key of requiredEnv) {
@@ -21,13 +11,22 @@ for (const key of requiredEnv) {
   }
 }
 
+const port = Number(process.env.DB_PORT);
+const connectionLimit = Number(process.env.DB_CONNECTION_LIMIT || 5);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("DB_PORT must be a valid TCP port");
+}
+if (!Number.isInteger(connectionLimit) || connectionLimit < 1 || connectionLimit > 100) {
+  throw new Error("DB_CONNECTION_LIMIT must be between 1 and 100");
+}
+
 const adapter = new PrismaMariaDb({
   host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
+  port,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 5),
+  connectionLimit,
   allowPublicKeyRetrieval: true,
 });
 

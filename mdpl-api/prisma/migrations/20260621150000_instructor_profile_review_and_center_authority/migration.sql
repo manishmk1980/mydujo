@@ -20,16 +20,16 @@ CREATE TABLE `instructor_training_center_assignments` (
     `assigned_at` DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0),
     `updated_at` DATETIME(0) NOT NULL,
 
-    UNIQUE INDEX `instructor_training_center_assignments_instructor_id_training_center_id_key`(`instructor_id`, `training_center_id`),
-    INDEX `instructor_training_center_assignments_instructor_id_idx`(`instructor_id`),
-    INDEX `instructor_training_center_assignments_training_center_id_idx`(`training_center_id`),
+    UNIQUE INDEX `instructor_center_assignment_unique`(`instructor_id`, `training_center_id`),
+    INDEX `instructor_center_assignment_instructor_idx`(`instructor_id`),
+    INDEX `instructor_center_assignment_center_idx`(`training_center_id`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 ALTER TABLE `instructor_training_center_assignments`
-    ADD CONSTRAINT `instructor_training_center_assignments_instructor_id_fkey`
+    ADD CONSTRAINT `instructor_center_assignment_instructor_fk`
     FOREIGN KEY (`instructor_id`) REFERENCES `instructors`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `instructor_training_center_assignments`
-    ADD CONSTRAINT `instructor_training_center_assignments_training_center_id_fkey`
+    ADD CONSTRAINT `instructor_center_assignment_center_fk`
     FOREIGN KEY (`training_center_id`) REFERENCES `training_centers`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

@@ -1,6 +1,6 @@
 ## Database Schema (MySQL)
 
-This document describes the core MySQL tables used by the MDPL backend API. It is based on `server/prisma/schema.prisma` and the migration scripts in `server/prisma/migrations`.
+This document describes the core MySQL tables used by the MDPL backend API. The executable source of truth is `mdpl-api/prisma/schema.prisma` plus the ordered migrations in `mdpl-api/prisma/migrations`.
 
 ---
 
@@ -31,22 +31,17 @@ We use **two deployment folders** and **two databases**:
 
 ## Source of truth & sync policy
 
-For this project, treat **the actual MySQL schema in `mdpl_db_qa`** as the current baseline, and keep Prisma synced to it.
+Prisma schema and committed migrations are the source of truth. Do not use `prisma db push`, ad-hoc runtime `ALTER TABLE` statements, or routine `prisma db pull` against shared environments.
 
-### Sync steps (DB → Prisma)
-From `server/`:
+From `mdpl-api/`:
 
-- `npx prisma db pull`
-- `npx prisma generate`
+- Validate and generate: `npx prisma validate` and `npx prisma generate`
+- Check deployment state: `npx prisma migrate status`
+- Deploy committed migrations: `npx prisma migrate deploy`
+- Preview legacy cleanup: `npm run data:sanitize:dry-run`
+- Apply idempotent cleanup: `npm run data:sanitize`
 
-This ensures `server/prisma/schema.prisma` matches `mdpl_db_qa` (tables/columns/indexes/FKs).
-
-### After baseline sync (Prisma → future DB changes)
-Once `schema.prisma` matches `mdpl_db_qa`, make all future schema changes via Prisma migrations:
-
-- Edit `server/prisma/schema.prisma`
-- `npx prisma migrate dev --name <change>`
-- Deploy with `npx prisma migrate deploy`
+Always take a database backup before baselining an older database or deploying migrations. Migration baselining is a one-time environment operation and must only mark migrations whose tables, columns, indexes, and constraints have already been verified as present.
 
 ---
 
@@ -189,7 +184,6 @@ Student registrations and linked user accounts (where applicable).
 | `instructor_name`              | VARCHAR(255)  | NULL                                            | Text instructor name                       |
 | `preferred_discipline`         | VARCHAR(64)   | NULL                                            | e.g. `"Karate, Judo"`                      |
 | `training_center_id`           | CHAR(36)      | NULL, INDEX                                     | FK to `training_centers.id` (nullable)     |
-| `training_center_name`         | VARCHAR(255)  | NULL                                            | Denormalized center name                   |
 | `profile_photo_url`            | VARCHAR(512)  | NULL                                            |                                            |
 | `status`                       | VARCHAR(32)   | NOT NULL, DEFAULT `"pending"`, INDEX            | e.g. `"draft"`, `"pending"`, `"approved"`  |
 | `marketing_opt_in`             | BOOLEAN       | NOT NULL, DEFAULT `false`                       |                                            |
@@ -274,13 +268,11 @@ Reference table for resolving PIN codes to city/state.
 - `students` ↔ `attendance`: one-to-many
 - `students` ↔ `pincode_lookup`: indirect via `pincode` column
 
-Use `npx prisma migrate deploy` (or the SQL in the `migrations` folder) to keep your database schema in sync with the application.
+Use `npx prisma migrate deploy` to keep the database schema in sync with the application.
 
 ---
 
-## Known drift warning (as of now)
+## Drift warning
 
-If you restored/imported a recent dump into `mdpl_db_qa`, the DB may contain additional tables/columns/FKs that are **not** represented in the current `server/prisma/schema.prisma`.
-
-Before making further changes, run the sync steps above so this document and Prisma reflect the same schema.
+If a restored database predates Prisma's migration ledger, stop and compare its schema with every historical migration before using `prisma migrate resolve`. Never mark a migration applied merely because a similarly named table exists.
 

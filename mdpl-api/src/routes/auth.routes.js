@@ -173,8 +173,6 @@ router.post("/student/login", async (req, res) => {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    console.log("Student login attempt:", cleanEmail);
-
     const user = await prisma.user.findUnique({
       where: { email: cleanEmail },
       include: {
@@ -198,7 +196,6 @@ router.post("/student/login", async (req, res) => {
 
     const roles = user.userRoles.map((ur) => ur.role.name);
     if (!roles.includes("STUDENT")) {
-      console.log(`Student login blocked: ${cleanEmail} (no STUDENT role)`);
       return res.status(403).json({ error: "This account is not enabled for student login" });
     }
 
@@ -207,27 +204,22 @@ router.post("/student/login", async (req, res) => {
     });
 
     if (!student) {
-      console.log(`Student login blocked: ${cleanEmail} (no student profile)`);
       return res.status(403).json({ error: "Student profile not found. Please contact support" });
     }
 
     if (student.status === "pending") {
-      console.log(`Student login blocked: ${cleanEmail} status=pending`);
       return res.status(403).json({ error: "Your registration is awaiting admin approval" });
     }
 
     if (student.status === "paused") {
-      console.log(`Student login blocked: ${cleanEmail} status=paused`);
       return res.status(403).json({ error: "Your account is currently paused. Please contact support" });
     }
 
     if (student.status === "rejected") {
-      console.log(`Student login blocked: ${cleanEmail} status=rejected`);
       return res.status(403).json({ error: "Your registration was not approved. Please contact support" });
     }
 
     if (student.status !== "approved") {
-      console.log(`Student login blocked: ${cleanEmail} status=${student.status}`);
       return res.status(403).json({ error: `Login is not allowed for status: ${student.status}` });
     }
 
@@ -302,6 +294,9 @@ router.post("/instructor/login", async (req, res) => {
 
     if (!instructor.isActive || !instructor.canLogin) {
       return res.status(403).json({ error: "Your account is currently disabled" });
+    }
+    if (instructor.approvalStatus !== "APPROVED") {
+      return res.status(403).json({ error: "Your instructor account is awaiting approval" });
     }
 
     const accessToken = jwt.sign(

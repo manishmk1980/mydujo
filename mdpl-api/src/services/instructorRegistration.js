@@ -117,39 +117,18 @@ async function ensureTrainingCenter(tx, payload) {
           slug,
           city,
           state,
-          instructor_name: instructorName,
+          instructorName,
         },
       });
-    } else if (instructorName && !center.instructor_name) {
+    } else if (instructorName && !center.instructorName) {
       center = await tx.trainingCenter.update({
         where: { id: center.id },
-        data: { instructor_name: instructorName },
+        data: { instructorName },
       });
     }
   }
 
   return center;
-}
-
-export async function ensureInstructorDisciplineColumn(tx) {
-  const schemaName = process.env.DB_NAME;
-  if (!schemaName) return;
-  const rows = await tx.$queryRawUnsafe(
-    `
-      SELECT COLUMN_NAME
-      FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = ?
-        AND TABLE_NAME = 'instructors'
-        AND COLUMN_NAME = 'preferred_discipline'
-      LIMIT 1
-    `,
-    schemaName
-  );
-  if (Array.isArray(rows) && rows.length > 0) return;
-
-  await tx.$executeRawUnsafe(
-    "ALTER TABLE instructors ADD COLUMN preferred_discipline VARCHAR(64) NULL AFTER training_center_name"
-  );
 }
 
 async function ensureInstructorRole(tx) {
@@ -227,6 +206,7 @@ export async function createInstructorWithSync(tx, payload, opts = {}) {
       bio,
       city,
       state,
+      preferredDiscipline,
       profilePhotoUrl: profilePhotoUrl,
       isActive: Boolean(isActive),
       canLogin: Boolean(canLogin),

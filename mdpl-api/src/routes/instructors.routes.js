@@ -520,9 +520,6 @@ router.patch("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { isActive, canLogin } = req.body || {};
-    if (typeof isActive !== "boolean" && typeof canLogin !== "boolean") {
-      return res.status(400).json({ error: "Account access update is required" });
-    }
 
     const existing = await prisma.instructor.findUnique({
       where: { id },
@@ -530,6 +527,9 @@ router.patch("/:id", requireAuth, requireSuperAdmin, async (req, res) => {
     });
 
     if (!existing) return res.status(404).json({ error: "Instructor not found" });
+    if (typeof isActive !== "boolean" && typeof canLogin !== "boolean") {
+      return res.status(400).json({ error: "Account access update is required" });
+    }
 
     if (canLogin === true && existing.approvalStatus !== "APPROVED") {
       return res.status(409).json({ error: "Approve the instructor account before enabling login" });

@@ -184,6 +184,7 @@ model Instructor {
   bio                        String?   @db.VarChar(512)
   city                       String?   @db.VarChar(128)
   state                      String?   @db.VarChar(128)
+  preferredDiscipline        String?   @map("preferred_discipline") @db.VarChar(64)
   profilePhotoUrl            String?   @map("profile_photo_url") @db.VarChar(512)
   isActive                   Boolean   @default(true) @map("is_active")
   canLogin                   Boolean   @default(true) @map("can_login")

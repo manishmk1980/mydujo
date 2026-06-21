@@ -11,6 +11,8 @@ const testUserId = crypto.randomUUID();
 const testEmail = `api-smoke-${testUserId}@example.invalid`;
 const studentUserId = crypto.randomUUID();
 const studentEmail = `api-smoke-student-${studentUserId}@example.invalid`;
+const publicStudentEmail = `api-smoke-public-student-${crypto.randomUUID()}@example.invalid`;
+const publicInstructorEmail = `api-smoke-public-instructor-${crypto.randomUUID()}@example.invalid`;
 let studentId;
 let server;
 
@@ -158,6 +160,45 @@ try {
     await request(baseUrl, name, path, options, expected);
   }
 
+  const publicStudentResponse = await fetch(`${baseUrl}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      full_name: "API Smoke Public Student",
+      email: publicStudentEmail,
+      password: "SmokePass123!",
+      preferred_discipline: "karate_shotokan",
+      terms_accepted_at: new Date().toISOString(),
+    }),
+  });
+  record("public student registration", publicStudentResponse.status === 201, `HTTP ${publicStudentResponse.status}`);
+
+  const publicInstructorResponse = await fetch(`${baseUrl}/register/instructor`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      full_name: "API Smoke Public Instructor",
+      email: publicInstructorEmail,
+      password: "SmokePass123!",
+      phone: "+91 99999 99999",
+      city: "Delhi",
+      state: "Delhi",
+      preferred_discipline: "karate_shotokan",
+      id_type: "test-id",
+      id_number: "SMOKE-ONLY",
+      id_document_url: "/uploads/payment-proofs/api-smoke-document.pdf",
+      declaration_accepted_at: new Date().toISOString(),
+    }),
+  });
+  record("public instructor registration", publicInstructorResponse.status === 201, `HTTP ${publicInstructorResponse.status}`);
+
+  const pendingInstructorLogin = await fetch(`${baseUrl}/auth/instructor/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: publicInstructorEmail, password: "SmokePass123!" }),
+  });
+  record("pending instructor login blocked", pendingInstructorLogin.status === 403, `HTTP ${pendingInstructorLogin.status}`);
+
   const feeResponse = await fetch(`${baseUrl}/fees/requests`, {
     method: "POST",
     headers: authHeaders,
@@ -180,6 +221,12 @@ try {
   }
   await prisma.notification.deleteMany({ where: { userId: studentUserId } }).catch(() => {});
   await prisma.feeRequest.deleteMany({ where: { createdByUserId: testUserId } }).catch(() => {});
+  await prisma.student.deleteMany({ where: { email: publicStudentEmail } }).catch(() => {});
+  await prisma.instructor.deleteMany({ where: { email: publicInstructorEmail } }).catch(() => {});
+  await prisma.user.deleteMany({ where: { email: { in: [publicStudentEmail, publicInstructorEmail] } } }).catch(() => {});
+  if (studentId) {
+    await prisma.student.delete({ where: { id: studentId } }).catch(() => {});
+  }
   await prisma.user.delete({ where: { id: studentUserId } }).catch(() => {});
   await prisma.user.delete({ where: { id: testUserId } }).catch(() => {});
   await prisma.$disconnect();
