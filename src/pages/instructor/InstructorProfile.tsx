@@ -200,11 +200,17 @@ export default function InstructorProfile() {
             <section className="mb-8 rounded-2xl border border-orange-200 bg-white p-6 shadow-sm sm:p-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h3 className="flex items-center gap-2 text-xl font-black text-slate-900"><Globe2 className="size-5 text-orange-600" /> Public Profile</h3>
+                        <h3 className="flex items-center gap-2 text-xl font-black text-slate-900"><Globe2 className="size-5 text-orange-600" /> Complete Your Public Profile</h3>
                         <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Complete this step by step. You own the profile content; Super Admin reviews and decides when it appears publicly.</p>
                     </div>
                     <span className="self-start rounded-full bg-orange-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-orange-800">{publicProfile?.status?.replaceAll('_', ' ') || 'Draft'}</span>
                 </div>
+
+                {profile?.applicationReviewNote && (
+                    <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                        <strong>MDPL review note:</strong> {profile.applicationReviewNote}
+                    </div>
+                )}
 
                 {publicProfile?.publicChangesRequestedNote && (
                     <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -214,7 +220,7 @@ export default function InstructorProfile() {
 
                 <div className="mt-6">
                     <div className="mb-2 flex items-center justify-between text-sm font-bold text-slate-700">
-                        <span>Profile completion</span>
+                        <span>Profile completion ({publicProfile?.completion.completed ?? 0}/{publicProfile?.completion.total ?? 6})</span>
                         <span>{publicProfile?.completion.percentage ?? 0}%</span>
                     </div>
                     <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -284,7 +290,7 @@ export default function InstructorProfile() {
                         </div>
                         <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
                             <p className="text-sm text-slate-500 font-medium italic">
-                                {profile?.bio || 'Professional instructor record since 2024. Your bio and teaching details are managed via the super admin panel.'}
+                                Your public introduction appears on the MDPL website only after you complete your public profile and Super Admin publishes it.
                             </p>
                         </div>
                     </div>

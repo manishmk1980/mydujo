@@ -13,6 +13,7 @@ import {
   getInstructorPublicProfileCompletion,
   serializeInstructorPublicProfile,
 } from "../utils/instructorPublicProfile.js";
+import { parseInstructorBioSections } from "../utils/instructorVerification.js";
 
 const router = Router();
 
@@ -76,9 +77,14 @@ router.get("/me", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Instructor profile not found" });
     }
 
+    const { cleanBio, adminReview } = parseInstructorBioSections(instructor.bio);
+
     return res.json({
       instructor: {
         ...instructor,
+        bio: cleanBio,
+        applicationReviewNote: adminReview,
+        approvalStatus: instructor.approvalStatus,
         publicProfile: serializeInstructorPublicProfile(instructor),
         assignedCenters: instructor.centerAssignments.map((assignment) => ({
           ...assignment.trainingCenter,
@@ -232,6 +238,9 @@ router.get("/admin/all", requireAuth, requireSuperAdmin, async (req, res) => {
     return res.json({
       instructors: instructors.map(i => ({
         ...i,
+        approvalStatus: i.approvalStatus,
+        approvedAt: i.approvedAt,
+        createdAt: i.createdAt,
         publicProfile: serializeInstructorPublicProfile(i),
         assignedCenters: i.centerAssignments.map((assignment) => ({
           ...assignment.trainingCenter,

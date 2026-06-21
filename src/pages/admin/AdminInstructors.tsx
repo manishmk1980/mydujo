@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Loader2, UserCog, RefreshCw, Eye, EyeOff, Upload,
   MoreHorizontal, Edit, Pause, CheckCircle2, MapPin, BookOpen,
-  Users, Key, X, Search, ClipboardList, ExternalLink, Trash2, Globe2, Star,
+  Users, Key, X, Search, ClipboardList, ExternalLink, Trash2,
 } from 'lucide-react';
 import { PageContainer } from '../../components/layout/PageContainer';
 import { AdminErrorState } from '../../components/admin/ui/AdminErrorState';
@@ -26,6 +26,7 @@ import { storageService } from '../../services/storageService';
 import { authService } from '../../services/authService';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { cn } from '../../lib/utils';
+import { InstructorDetailModal } from '../../components/admin/instructors/InstructorDetailModal';
 
 type InstructorExt = Instructor & { _count?: { students: number; classes: number; centers?: number } };
 
@@ -137,7 +138,7 @@ function InstructorMenu({ onView, onEdit, onAssign, onPause, onDelete, isActive 
     { label: 'View profile', icon: Eye, action: onView },
     { label: 'Edit', icon: Edit, action: onEdit },
     { label: 'Assign center / discipline', icon: MapPin, action: onAssign },
-    { label: isActive ? 'Pause instructor' : 'Reactivate', icon: isActive ? Pause : CheckCircle2, action: onPause },
+    { label: isActive ? 'Suspend access' : 'Restore access', icon: isActive ? Pause : CheckCircle2, action: onPause },
     { label: 'Delete', icon: Trash2, action: onDelete },
   ];
 
@@ -230,204 +231,7 @@ function AssignModal({ instructor, onClose, onSave, trainingCenters, submitting 
   );
 }
 
-// ─── Instructor detail drawer ─────────────────────────────────────────────────
-
-function PublicVisibilityPanel({ instructor, canEdit, onSaved }: {
-  instructor: InstructorExt;
-  canEdit: boolean;
-  onSaved: (updated: InstructorExt) => void;
-}) {
-  const confirm = useAdminConfirm();
-  const profile = instructor.publicProfile;
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [publicProfileEnabled, setPublicProfileEnabled] = useState(Boolean(profile?.publicProfileEnabled));
-  const [isFeaturedPublic, setIsFeaturedPublic] = useState(Boolean(profile?.isFeaturedPublic));
-  const [publicDisplayOrder, setPublicDisplayOrder] = useState(profile?.publicDisplayOrder == null ? '' : String(profile.publicDisplayOrder));
-  const [changesNote, setChangesNote] = useState('');
-
-  const save = async () => {
-    if (publicProfileEnabled !== Boolean(profile?.publicProfileEnabled)) {
-      const enabling = publicProfileEnabled;
-      const ok = await confirm({
-        title: enabling ? 'Publish this instructor?' : 'Remove from public website?',
-        description: enabling
-          ? 'This profile will appear on the public website. Private information will not be shown. Continue?'
-          : 'This profile will be removed from the public website. Continue?',
-        confirmLabel: enabling ? 'Publish profile' : 'Remove profile',
-        variant: enabling ? 'default' : 'warning',
-      });
-      if (!ok) return;
-    }
-
-    setSaving(true);
-    setMessage(null);
-    try {
-      const updated = await instructorService.updatePublicProfile(instructor.id, {
-        publicProfileEnabled,
-        publicDisplayOrder: publicDisplayOrder === '' ? null : Number(publicDisplayOrder),
-        isFeaturedPublic,
-      });
-      onSaved({ ...instructor, publicProfile: updated as any });
-      setMessage('Public visibility settings saved.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not save public visibility settings.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const requestChanges = async () => {
-    if (!changesNote.trim()) {
-      setMessage('Add a clear note for the instructor first.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const updated = await instructorService.updatePublicProfile(instructor.id, {
-        publicProfileEnabled: false,
-        publicDisplayOrder: publicDisplayOrder === '' ? null : Number(publicDisplayOrder),
-        isFeaturedPublic,
-        requestChanges: true,
-        changesRequestedNote: changesNote.trim(),
-      });
-      onSaved({ ...instructor, publicProfile: updated as any });
-      setChangesNote('');
-      setPublicProfileEnabled(false);
-      setMessage('Changes requested from the instructor.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not request changes.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const completion = profile?.completion ?? { percentage: 0, completed: 0, total: 6, missing: ['Public profile not started'], isReadyForReview: false };
-  const statusLabel = profile?.status?.replaceAll('_', ' ') || 'INCOMPLETE';
-
-  return (
-    <section className="mt-4 rounded-2xl border border-orange-200 bg-orange-50/50 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <Globe2 className="size-4 text-orange-600" />
-            <h3 className="font-extrabold text-slate-900">Public Website Visibility</h3>
-          </div>
-          <p className="mt-1 text-xs leading-5 text-slate-600">Instructor-owned profile content is reviewed here. Only Super Admin controls publication, featuring, and display order.</p>
-        </div>
-        <div className="flex gap-2">
-          <AdminBadge variant={profile?.status === 'PUBLISHED' ? 'success' : profile?.status === 'READY_FOR_REVIEW' ? 'info' : 'neutral'} size="sm">{statusLabel}</AdminBadge>
-          {isFeaturedPublic && <AdminBadge variant="warning" size="sm">Featured</AdminBadge>}
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-3">
-        <div>
-          <div className="mb-1 flex justify-between text-xs font-bold text-slate-600"><span>Public profile {completion.percentage}% complete</span><span>{completion.completed}/{completion.total}</span></div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-orange-600" style={{ width: `${completion.percentage}%` }} /></div>
-        </div>
-        {completion.missing.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><strong>Missing:</strong> {completion.missing.join(', ')}</div>}
-        <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm sm:grid-cols-2">
-          <div><p className="text-[10px] font-bold uppercase text-slate-400">Display name</p><p className="font-semibold text-slate-900">{profile?.publicDisplayName || instructor.fullName}</p></div>
-          <div><p className="text-[10px] font-bold uppercase text-slate-400">Public slug</p><p className="font-semibold text-slate-900">{profile?.publicSlug || 'Generated on first save'}</p></div>
-          <div><p className="text-[10px] font-bold uppercase text-slate-400">Photo</p><p className="font-semibold text-slate-900">{profile?.publicPhotoUrl ? 'Uploaded' : 'Missing'}</p></div>
-          <div><p className="text-[10px] font-bold uppercase text-slate-400">Location / style</p><p className="font-semibold text-slate-900">{[profile?.city, profile?.state].filter(Boolean).join(', ') || 'Location missing'} · {profile?.publicDiscipline || 'Style missing'}</p></div>
-          <div className="sm:col-span-2"><p className="text-[10px] font-bold uppercase text-slate-400">Bio preview</p><p className="line-clamp-3 text-slate-700">{profile?.publicBio || 'No public bio yet.'}</p></div>
-        </div>
-        {canEdit && <>
-          <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
-            <input type="checkbox" checked={publicProfileEnabled} onChange={(e) => setPublicProfileEnabled(e.target.checked)} className="size-4 accent-orange-600" />
-            Publish on public website
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <input type="checkbox" checked={isFeaturedPublic} onChange={(e) => setIsFeaturedPublic(e.target.checked)} className="size-4 accent-orange-600" />
-              <Star className="size-4 text-amber-500" /> Featured instructor
-            </label>
-            <Field label="Display order"><input type="number" min="0" max="1000000" className={inputCls} value={publicDisplayOrder} onChange={(e) => setPublicDisplayOrder(e.target.value)} /></Field>
-          </div>
-          <Field label="Request profile changes"><textarea maxLength={1000} className={cn(inputCls, 'min-h-20')} placeholder="Tell the instructor exactly what needs attention" value={changesNote} onChange={(e) => setChangesNote(e.target.value)} /></Field>
-        </>}
-        {message && <p className={cn('text-sm font-semibold', message.includes('saved') ? 'text-emerald-700' : 'text-red-700')}>{message}</p>}
-        {canEdit && <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={saving} onClick={() => void save()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-extrabold text-white hover:bg-orange-700 disabled:opacity-60">
-            {saving && <Loader2 className="size-4 animate-spin" />} Save publication controls
-          </button>
-          <button type="button" disabled={saving || !changesNote.trim()} onClick={() => void requestChanges()} className="min-h-11 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-extrabold text-amber-800 disabled:opacity-50">Request instructor changes</button>
-        </div>}
-      </div>
-    </section>
-  );
-}
-
-function InstructorDetailDrawer({ instructor, onClose, onEdit, onAssign, onPause, onResetPassword, onDelete, onPublicSaved, canPublish, trainingCenters, disciplines }: {
-  instructor: InstructorExt; onClose: () => void;
-  onEdit: () => void; onAssign: () => void; onPause: () => void;
-  onResetPassword: () => void; onDelete: () => void;
-  onPublicSaved: (updated: InstructorExt) => void; canPublish: boolean;
-  trainingCenters: TrainingCenter[]; disciplines: DisciplineOption[];
-}) {
-  const centerName = trainingCenters.find((c) => c.id === instructor.trainingCenterId)?.name || instructor.trainingCenterName || '—';
-  const disciplineLabel = disciplines.find((d) => d.value === instructor.preferredDiscipline)?.label || instructor.preferredDiscipline || '—';
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-2 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
-      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[85dvh] sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div className="flex min-w-0 items-center gap-3">
-            {instructor.profilePhotoUrl ? (
-              <img src={instructor.profilePhotoUrl} alt="" className="size-11 shrink-0 rounded-full object-cover border border-slate-200" />
-            ) : (
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400"><UserCog className="size-5" /></div>
-            )}
-            <div className="min-w-0">
-              <p className="truncate font-bold text-slate-900">{instructor.fullName}</p>
-              <p className="truncate text-xs text-slate-500">{instructor.email}</p>
-              <AdminBadge variant={instructor.isActive ? 'success' : 'warning'} size="sm">{instructor.isActive ? 'Active' : 'Inactive'}</AdminBadge>
-            </div>
-          </div>
-          <button onClick={onClose} aria-label="Close" className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="size-4" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
-            {[
-              { label: 'Phone', value: instructor.phone || '—' },
-              { label: 'Location', value: [instructor.city, instructor.state].filter(Boolean).join(', ') || '—' },
-              { label: 'Center', value: centerName },
-              { label: 'Discipline', value: disciplineLabel },
-              { label: 'Students', value: String(instructor._count?.students ?? '—') },
-              { label: 'Classes', value: String(instructor._count?.classes ?? '—') },
-            ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-                <p className="mt-0.5 font-semibold text-slate-900">{value}</p>
-              </div>
-            ))}
-            {instructor.bio && (
-              <div className="sm:col-span-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Bio</p>
-                <p className="text-sm text-slate-700">{instructor.bio}</p>
-              </div>
-            )}
-          </div>
-          <PublicVisibilityPanel instructor={instructor} canEdit={canPublish} onSaved={onPublicSaved} />
-        </div>
-        <div className="flex flex-wrap gap-2 border-t border-slate-200 px-5 py-4">
-          <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><Edit className="size-3.5" /> Edit</button>
-          <button onClick={onAssign} className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100"><MapPin className="size-3.5" /> Assign</button>
-          <button onClick={onPause} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100">
-            {instructor.isActive ? <><Pause className="size-3.5" /> Pause</> : <><CheckCircle2 className="size-3.5" /> Reactivate</>}
-          </button>
-          <button onClick={onResetPassword} className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"><Key className="size-3.5" /> Reset Password</button>
-          <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"><Trash2 className="size-3.5" /> Delete</button>
-          {instructor.profilePhotoUrl && (
-            <a href={instructor.profilePhotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><ExternalLink className="size-3.5" /> View Photo</a>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -437,8 +241,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-
-// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AdminInstructors() {
   const navigate = useNavigate();
@@ -530,20 +332,30 @@ export default function AdminInstructors() {
   const handlePause = async (i: InstructorExt) => {
     const isActive = i.isActive;
     const ok = await confirm({
-      title: isActive ? 'Pause instructor?' : 'Reactivate instructor?',
+      title: isActive ? 'Suspend account access?' : 'Restore account access?',
       description: isActive
-        ? `"${i.fullName}" will be paused. Their assignments remain, but portal access and active teaching are suspended.`
-        : `"${i.fullName}" will be reactivated.`,
-      confirmLabel: isActive ? 'Pause' : 'Reactivate',
+        ? 'This will prevent the instructor from logging in but will not delete their profile. Continue?'
+        : `"${i.fullName}" will be able to log in again when access is restored and the account is approved.`,
+      confirmLabel: isActive ? 'Suspend access' : 'Restore access',
       cancelLabel: 'Cancel',
       variant: isActive ? 'warning' : 'default',
     });
     if (!ok) return;
     try {
-      const updated = await instructorService.updateInstructor(i.id, { isActive: !i.isActive, canLogin: !i.isActive });
-      setInstructors((prev) => prev.map((x) => x.id === i.id ? { ...x, ...updated } : x));
-      setDetailInstructor(null);
-      showFlash(`${i.fullName} ${isActive ? 'paused' : 'reactivated'}.`);
+      if (isActive) {
+        if (i.approvalStatus === 'APPROVED') {
+          await instructorService.updateApplicationStatus(i.id, 'SUSPENDED');
+        } else {
+          await instructorService.updateInstructor(i.id, { isActive: false, canLogin: false });
+        }
+      } else if (i.approvalStatus === 'SUSPENDED') {
+        await instructorService.updateApplicationStatus(i.id, 'APPROVED');
+      } else {
+        await instructorService.updateInstructor(i.id, { isActive: true, canLogin: true });
+      }
+      await fetchAll();
+      setDetailInstructor((current) => (current?.id === i.id ? null : current));
+      showFlash(`${i.fullName} ${isActive ? 'access suspended' : 'access restored'}.`);
     } catch (error) {
       showFlash(error instanceof Error ? error.message : 'Failed to update instructor status.', 'error');
     }
@@ -742,17 +554,21 @@ export default function AdminInstructors() {
 
       {/* Detail drawer */}
       {detailInstructor && (
-        <InstructorDetailDrawer
+        <InstructorDetailModal
           instructor={detailInstructor}
           onClose={() => setDetailInstructor(null)}
           onEdit={() => showFlash('Edit form — coming soon (backend update endpoint pending).', 'error')}
           onAssign={() => { setAssignInstructor(detailInstructor); setDetailInstructor(null); }}
-          onPause={() => void handlePause(detailInstructor)}
+          onSuspend={() => void handlePause(detailInstructor)}
           onResetPassword={() => void handleResetPassword(detailInstructor)}
           onDelete={() => void handleDelete(detailInstructor)}
           onPublicSaved={(updated) => {
             setInstructors((previous) => previous.map((item) => item.id === updated.id ? updated : item));
             setDetailInstructor(updated);
+          }}
+          onApplicationUpdated={(updated) => {
+            setInstructors((previous) => previous.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+            setDetailInstructor((current) => current?.id === updated.id ? { ...current, ...updated } : current);
           }}
           canPublish={canPublish}
           trainingCenters={trainingCenters}

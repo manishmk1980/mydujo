@@ -19,6 +19,10 @@ export interface Instructor {
   preferredDiscipline?: string | null;
   isActive: boolean;
   canLogin: boolean;
+  approvalStatus?: string;
+  approvedAt?: string | null;
+  createdAt?: string;
+  applicationReviewNote?: string | null;
   publicProfileEnabled?: boolean;
   publicDisplayName?: string | null;
   publicSlug?: string | null;
@@ -243,6 +247,32 @@ export const instructorService = {
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || 'Failed to update instructor');
     return result.instructor as Instructor;
+  },
+
+  async updateApplicationStatus(
+    id: string,
+    status: 'PENDING_REVIEW' | 'REQUEST_INFO' | 'NEEDS_MORE_INFO' | 'APPROVED' | 'REJECTED' | 'SUSPENDED',
+    extra?: { reviewNotes?: string; requestedInfoMessage?: string },
+  ) {
+    const res = await fetch(`${API_BASE}/admin/instructor-applications/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: getAdminAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ status, ...extra }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.error || 'Failed to update application status');
+    const instructor = result.instructor || {};
+    return {
+      id: instructor.id,
+      fullName: instructor.fullName || instructor.full_name,
+      email: instructor.email,
+      bio: instructor.bio,
+      isActive: instructor.isActive ?? instructor.is_active,
+      canLogin: instructor.canLogin ?? instructor.can_login,
+      approvalStatus: instructor.approvalStatus || instructor.approval_status,
+      approvedAt: instructor.approvedAt || instructor.approved_at,
+    } as Partial<Instructor>;
   },
 
   async updatePublicProfile(id: string, data: {
