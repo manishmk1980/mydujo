@@ -59,6 +59,7 @@ export interface FeeRequestDTO {
   student_id: string;
   created_by_user_id?: string;
   created_by_email?: string | null;
+  created_by_display_name?: string | null;
   training_center_id?: string | null;
 }
 
@@ -76,6 +77,26 @@ export interface PaymentSubmissionDTO {
   review_notes?: string | null;
   reviewed_at?: string | null;
   created_at?: string;
+}
+
+/** Fee requests where the student can open Pay / submit (ISSUED or OVERDUE, no blocking submission). */
+export function countActionableStudentFeeRequests(
+  requests: FeeRequestDTO[],
+  payments: PaymentSubmissionDTO[]
+): number {
+  return requests.filter((r) => {
+    const status = r.computed_status ?? r.status;
+    const openForPayment = status === 'ISSUED' || status === 'OVERDUE';
+    if (!openForPayment) return false;
+    const latestPayment = payments
+      .filter((p) => p.fee_request_id === r.id)
+      .sort(
+        (a, b) =>
+          new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      )[0];
+    if (!latestPayment) return true;
+    return latestPayment.status === 'REJECTED' || latestPayment.status === 'CANCELLED';
+  }).length;
 }
 
 export const feesService = {
@@ -185,7 +206,7 @@ export const feesService = {
         description: input.description ?? null,
         amount_paise: input.amountPaise,
         due_date: input.dueDate,
-        status: input.status ?? 'DRAFT',
+        status: input.status ?? 'ISSUED',
       }),
     });
     const data = await res.json().catch(() => ({}));

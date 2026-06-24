@@ -16,6 +16,7 @@ import { PageContainer } from '../../components/layout/PageContainer';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
+import { useFlashToast } from '../../components/ui/FlashToast';
 import { instructorService, Instructor, DashboardStats } from '../../services/instructorService';
 
 /**
@@ -23,6 +24,7 @@ import { instructorService, Instructor, DashboardStats } from '../../services/in
  * related summaries for the logged-in instructor.
  */
 export default function InstructorProfile() {
+    const toast = useFlashToast();
     const { user } = useAuth();
     const [profile, setProfile] = useState<Instructor | null>(null);
     const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -51,9 +53,9 @@ export default function InstructorProfile() {
         try {
             const { error } = await authService.resetPasswordForEmail(user.email);
             if (error) throw error;
-            alert('Password reset link sent to your registered email.');
+            toast.success('Password reset link sent to your registered email.');
         } catch (error: unknown) {
-            alert(error instanceof Error ? error.message : 'Failed to send reset link');
+            toast.error(error instanceof Error ? error.message : 'Failed to send reset link');
         }
     };
 

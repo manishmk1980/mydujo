@@ -48,6 +48,7 @@ import AdminFeeRequests from './pages/admin/AdminFeeRequests';
 import AdminPaymentReview from './pages/admin/AdminPaymentReview';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import InstructorOnboarding from './pages/InstructorOnboarding';
 import { Seo } from './components/Seo';
 
 // Instructor Admin Panel
@@ -59,6 +60,8 @@ import InstructorAttendance from './pages/instructor/InstructorAttendance';
 import InstructorGrading from './pages/instructor/InstructorGrading';
 import InstructorProfile from './pages/instructor/InstructorProfile';
 
+const routerBaseName = '/';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -66,7 +69,7 @@ export default function App() {
         <LanguageProvider>
           <FlashToastProvider>
             <AttendanceProvider>
-              <Router basename="/mdpl-qa">
+              <Router basename={routerBaseName}>
                 <Seo />
                 <Routes>
                   {/* Admin Routes */}
@@ -95,6 +98,7 @@ export default function App() {
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<Registration />} />
+                  <Route path="/instructor/register" element={<InstructorOnboarding />} />
                   <Route path="/forgot-password" element={<ForgotPassword />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
 

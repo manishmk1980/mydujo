@@ -14,7 +14,6 @@ import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAttendance } from '../context/AttendanceContext';
 import { useAuth } from '../context/AuthContext';
-import { AspectRatio } from '../components/ui/aspect-ratio';
 import { feesService, type FeeRequestDTO } from '../services/feesService';
 
 function formatRelativeDate(dateStr: string) {
@@ -32,7 +31,6 @@ function formatRelativeDate(dateStr: string) {
 export default function Dashboard() {
   const { attendance: attendanceRecords } = useAttendance();
   const { user, student } = useAuth();
-  const studentId = user?.studentId ?? student?.id;
 
   // Derive present/total: approved = present, total = all records
   const approved = attendanceRecords.filter((r) => r.status === 'approved').length;
@@ -77,35 +75,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Osu, {displayName.split(' ')[0]}!</h2>
-              <p className="text-slate-500 mt-1">
-                {attendance.total > 0 ? 'Keep up your training!' : 'Welcome! Start your training journey.'}
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="p-2 text-slate-400 hover:text-primary transition-colors relative">
-                <Bell className="size-6" />
-              </button>
-              <div className="h-10 w-px bg-slate-200 mx-2"></div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p className="text-sm font-bold">{displayName}</p>
-                  <p className="text-xs text-slate-500">{student?.email || user?.email || ''}</p>
-                </div>
-                <div className="size-10 rounded-full object-cover border-2 border-primary overflow-hidden shrink-0">
-                  <AspectRatio ratio={1 / 1}>
-                    <img
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrTIYcy2Fr3S9WaKAHzodELcQxKHxBvIW2Blnc6TEl_XvITPkt1AW3gXN5jElC4_Tg0Rnd7SCY0taIwVq9DOk4ojrNCAeYiUhEakrvogI44EHrNQ6Laeqmur538z7hLFXlBDpO095WuuJbPE9d4c5o6NSPlVN9vcjFzDTWKGljv_j3nvkCIJFgxLUDe8JCQ5mC49A4vJMWRS7rGCzzVbiYkyzr4HRR_K3VYE9_IX9zB4OQ3h8ZhZDG1ZKd79uGfFZO7wIvVzhTuSI"
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  </AspectRatio>
-                </div>
-              </div>
-            </div>
+          {/* Greeting — profile and notifications live in the shell header */}
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Osu, {displayName.split(' ')[0]}!</h2>
+            <p className="mt-1 text-slate-500">
+              {attendance.total > 0 ? 'Keep up your training!' : 'Welcome! Start your training journey.'}
+            </p>
           </div>
 
           {/* Stats Grid */}

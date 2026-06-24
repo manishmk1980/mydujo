@@ -1,29 +1,29 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
-import prismaPkg from "@prisma/client";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { config } from "dotenv";
+import { PrismaClient } from "@prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
-const { PrismaClient } = prismaPkg;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.join(__dirname, "..");
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const envLocalPath = path.join(appRoot, ".env.local");
+const envPath = path.join(appRoot, ".env");
 
-// Force this service to use server/.env values, even if process manager
-// has stale DB_* vars from another environment.
-dotenv.config({ path: path.resolve(__dirname, "../.env"), override: true });
+// Local first, if present
+if (fs.existsSync(envLocalPath) && process.env.NODE_ENV !== "production") {
+  config({ path: envLocalPath, override: true });
+}
 
-const requiredEnv = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
-
-for (const key of requiredEnv) {
-  if (!process.env[key]) {
-    throw new Error(`Missing required env var: ${key}`);
-  }
+// Fallback
+if (fs.existsSync(envPath)) {
+  config({ path: envPath, override: false });
 }
 
 const adapter = new PrismaMariaDb({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
+  host: process.env.DB_HOST || "localhost",
+  port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
@@ -31,4 +31,3 @@ const adapter = new PrismaMariaDb({
 });
 
 export const prisma = new PrismaClient({ adapter });
-export default prisma;

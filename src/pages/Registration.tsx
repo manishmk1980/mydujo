@@ -22,10 +22,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { storageService } from '../services/storageService';
 import type { GenderType } from '../types/registration';
 import { AspectRatio } from '../components/ui/aspect-ratio';
+import { useFlashToast } from '../components/ui/FlashToast';
 import { API_BASE } from '../config';
+import { trainingCenterService, type TrainingCenter } from '../services/trainingCenterService';
+import { metaService, type DisciplineOption } from '../services/metaService';
 
 const BLOOD_GROUP_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 const COUNTRY_CODE_OPTIONS = ['+91', '+1', '+44', '+61', '+971', '+880', '+977', '+94'] as const;
+const BELT_GRADE_OPTIONS = ['WHITE_BELT', 'COLOUR_BELT', 'BLACK_BELT'] as const;
 
 type FormData = {
   // Part 1
@@ -37,6 +41,7 @@ type FormData = {
   aadharNumber: string;
   isStudent: boolean;
   qualification: string;
+  beltGrade: '' | (typeof BELT_GRADE_OPTIONS)[number];
   // Part 2
   address: string;
   pincode: string;
@@ -51,6 +56,7 @@ type FormData = {
   emergencyNumber: string; // 10 digits
   // Part 3
   schoolCollegeName: string;
+  trainingCenterId: string;
   trainingCenterName: string;
   schoolCollegeLocationCity: string;
   schoolCollegeLocationState: string;
@@ -74,13 +80,18 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 export default function Registration() {
+  const toast = useFlashToast();
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [successCredentials, setSuccessCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [successCredentials, setSuccessCredentials] = useState<{
+    fullName: string;
+    email: string;
+    password: string;
+  } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +138,7 @@ export default function Registration() {
       aadharNumber: saved?.aadharNumber ?? '',
       isStudent: Boolean(saved?.isStudent),
       qualification: saved?.qualification ?? '',
+      beltGrade: (BELT_GRADE_OPTIONS as readonly string[]).includes(saved?.beltGrade) ? saved.beltGrade : '',
       address: saved?.address ?? '',
       pincode: saved?.pincode ?? '',
       city: saved?.city ?? '',
@@ -139,6 +151,7 @@ export default function Registration() {
       emergencyCountryCode: asCountryCode(saved?.emergencyCountryCode ?? emergencySplit.cc),
       emergencyNumber: onlyDigits(saved?.emergencyNumber ?? emergencySplit.num).slice(0, 10),
       schoolCollegeName: saved?.schoolCollegeName ?? '',
+      trainingCenterId: saved?.trainingCenterId ?? '',
       trainingCenterName: saved?.trainingCenterName ?? '',
       schoolCollegeLocationCity: saved?.schoolCollegeLocationCity ?? '',
       schoolCollegeLocationState: saved?.schoolCollegeLocationState ?? '',
@@ -168,6 +181,7 @@ export default function Registration() {
       aadharNumber: '',
       isStudent: false,
       qualification: '',
+      beltGrade: '',
       address: '',
       pincode: '',
       city: '',
@@ -180,6 +194,7 @@ export default function Registration() {
       emergencyCountryCode: '+91',
       emergencyNumber: '',
       schoolCollegeName: '',
+      trainingCenterId: '',
       trainingCenterName: '',
       schoolCollegeLocationCity: '',
       schoolCollegeLocationState: '',
@@ -192,6 +207,8 @@ export default function Registration() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [trainingCenters, setTrainingCenters] = useState<TrainingCenter[]>([]);
+  const [disciplines, setDisciplines] = useState<DisciplineOption[]>([]);
 
   const validateStep = (step: number) => {
     const newErrors: Record<string, string> = {};
@@ -235,7 +252,7 @@ export default function Registration() {
 
   const saveDraft = () => {
     localStorage.setItem('registration_draft', JSON.stringify(form));
-    alert('Progress saved to draft!');
+    toast.success('Progress saved to draft.');
   };
 
   const updateForm = (field: keyof FormData, value: string | boolean) => {
@@ -246,11 +263,26 @@ export default function Registration() {
     localStorage.setItem('registration_draft', JSON.stringify(form));
   }, [form]);
 
+  React.useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      trainingCenterService.getAllTrainingCenters().catch(() => [] as TrainingCenter[]),
+      metaService.getDisciplines().catch(() => [] as DisciplineOption[]),
+    ]).then(([centers, disciplineOptions]) => {
+      if (!mounted) return;
+      setTrainingCenters(centers || []);
+      setDisciplines(disciplineOptions || []);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const [stream, setStream] = useState<MediaStream | null>(null);
 
   const startCamera = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      alert('Your browser does not support camera access.');
+      toast.error('Your browser does not support camera access.');
       return;
     }
     try {
@@ -264,7 +296,7 @@ export default function Registration() {
       let message = 'Could not access camera.';
       if (e?.name === 'NotAllowedError') message = 'Camera access denied.';
       else if (e?.name === 'NotFoundError') message = 'No camera found.';
-      alert(message);
+      toast.error(message);
       setIsCameraOpen(false);
     }
   };
@@ -389,13 +421,14 @@ export default function Registration() {
           parent_guardian_name: form.parentGuardianName.trim() || null,
           emergency_contact: form.emergencyNumber ? `${form.emergencyCountryCode}${form.emergencyNumber}` : null,
           preferred_discipline: form.preferredDiscipline.trim() || null,
-          training_center_id: null,
+          training_center_id: form.trainingCenterId || null,
           training_center_name: form.trainingCenterName.trim() || null,
           marketing_opt_in: form.marketingOptIn,
           terms_accepted_at: new Date().toISOString(),
           blood_group: form.bloodGroup.trim() || null,
           aadhar_number: form.aadharNumber.trim() || null,
           qualification: form.qualification.trim() || null,
+          belt_grade: form.beltGrade || null,
           address: form.address.trim() || null,
           pincode: form.pincode.trim() || null,
           city: form.city.trim() || null,
@@ -418,7 +451,11 @@ export default function Registration() {
       }
 
       localStorage.removeItem('registration_draft');
-      setSuccessCredentials({ email: form.email.trim(), password: form.password });
+      setSuccessCredentials({
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      });
       setSubmitSuccess(true);
       setForm({
         fullName: '',
@@ -429,6 +466,7 @@ export default function Registration() {
         aadharNumber: '',
         isStudent: false,
         qualification: '',
+        beltGrade: '',
         address: '',
         pincode: '',
         city: '',
@@ -441,6 +479,7 @@ export default function Registration() {
         emergencyCountryCode: '+91',
         emergencyNumber: '',
         schoolCollegeName: '',
+        trainingCenterId: '',
         trainingCenterName: '',
         schoolCollegeLocationCity: '',
         schoolCollegeLocationState: '',
@@ -454,7 +493,10 @@ export default function Registration() {
       setPhotoFile(null);
     } catch (err: unknown) {
       let msg = 'Registration failed. Please try again.';
-      if (err && typeof err === 'object') {
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        msg =
+          'Could not reach the server (it may be down or returning 503). If you use www and non-www, ensure /api is not redirected between them—or remove VITE_API_URL so the app uses same-origin /api.';
+      } else if (err && typeof err === 'object') {
         const e = err as { message?: string; code?: string };
         if (typeof e.message === 'string') msg = e.message;
       } else if (err instanceof Error) {
@@ -483,6 +525,10 @@ export default function Registration() {
             <div className="mb-8 mx-auto max-w-md text-left bg-slate-50 border border-slate-200 rounded-2xl p-6">
               <p className="text-sm font-bold text-slate-700 mb-3">Save your login details:</p>
               <div className="space-y-3">
+                <div>
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Name</span>
+                  <p className="text-slate-900 font-medium break-words">{successCredentials.fullName}</p>
+                </div>
                 <div>
                   <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Email</span>
                   <p className="text-slate-900 font-mono break-all">{successCredentials.email}</p>
@@ -674,6 +720,19 @@ export default function Registration() {
                         value={form.aadharNumber}
                         onChange={(e) => updateForm('aadharNumber', e.target.value)}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">Current Belt / Grade</label>
+                      <select
+                        className="w-full bg-slate-50 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-0"
+                        value={form.beltGrade}
+                        onChange={(e) => updateForm('beltGrade', e.target.value as FormData['beltGrade'])}
+                      >
+                        <option value="">Select Belt / Grade</option>
+                        <option value="WHITE_BELT">White Belt</option>
+                        <option value="COLOUR_BELT">Colour Belt</option>
+                        <option value="BLACK_BELT">Black Belt</option>
+                      </select>
                     </div>
 
                     <div className="md:col-span-2 flex items-center gap-3 p-4 bg-slate-50 rounded-xl">
@@ -939,14 +998,26 @@ export default function Registration() {
                     )}
 
                     <div className={`space-y-2 ${!form.isStudent ? 'md:col-span-2' : ''}`}>
-                      <label className="text-sm font-bold text-slate-700">Training Center Name</label>
-                      <input
-                        type="text"
+                      <label className="text-sm font-bold text-slate-700">Training Center</label>
+                      <select
                         className="w-full bg-slate-50 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-0"
-                        placeholder="e.g. Downtown Dojo"
-                        value={form.trainingCenterName}
-                        onChange={(e) => updateForm('trainingCenterName', e.target.value)}
-                      />
+                        value={form.trainingCenterId}
+                        onChange={(e) => {
+                          const center = trainingCenters.find((c) => c.id === e.target.value);
+                          setForm((prev) => ({
+                            ...prev,
+                            trainingCenterId: center?.id || '',
+                            trainingCenterName: center?.name || '',
+                          }));
+                        }}
+                      >
+                        <option value="">Select training center</option>
+                        {trainingCenters.map((center) => (
+                          <option key={center.id} value={center.id}>
+                            {center.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="space-y-2">
@@ -961,13 +1032,18 @@ export default function Registration() {
                     </div>
                     <div className="md:col-span-2 space-y-2">
                       <label className="text-sm font-bold text-slate-700">Preferred Discipline</label>
-                      <input
-                        type="text"
+                      <select
                         className="w-full bg-slate-50 border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-0"
-                        placeholder="e.g. Karate, Judo, MMA"
                         value={form.preferredDiscipline}
                         onChange={(e) => updateForm('preferredDiscipline', e.target.value)}
-                      />
+                      >
+                        <option value="">Select discipline</option>
+                        {disciplines.map((discipline) => (
+                          <option key={discipline.value} value={discipline.value}>
+                            {discipline.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 

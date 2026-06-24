@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
-    base: '/mdpl-qa/',
+    base: '/',
     build: {
       outDir: 'build',
     },

@@ -19,12 +19,14 @@ import { motion } from 'motion/react';
 import { AspectRatio } from '../components/ui/aspect-ratio';
 import { PageContainer } from '../components/layout/PageContainer';
 import { PageHeader } from '../components/layout/PageHeader';
+import { useFlashToast } from '../components/ui/FlashToast';
 
 /**
  * Student-admin profile page. Displays only the logged-in student's profile
  * and related summary information. Core identity data is managed by the dojo.
  */
 export default function Profile() {
+  const toast = useFlashToast();
   const { user, student } = useAuth();
   const { attendance: attendanceRecords } = useAttendance();
 
@@ -93,9 +95,9 @@ export default function Profile() {
         throw error;
       }
 
-      alert('Password reset link sent to your email.');
+      toast.success('Password reset link sent to your email.');
     } catch (error: unknown) {
-      alert(error instanceof Error ? error.message : 'Failed to send reset link');
+      toast.error(error instanceof Error ? error.message : 'Failed to send reset link');
     }
   };
 

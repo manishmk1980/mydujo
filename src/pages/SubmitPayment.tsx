@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Copy, Download, QrCode, Wallet } from 'lucide-react';
 import { PageContainer } from '../components/layout/PageContainer';
 import { PageHeader } from '../components/layout/PageHeader';
 import { feesService, type FeeRequestDTO, type PaymentMethod } from '../services/feesService';
@@ -24,6 +25,9 @@ function referenceRequired(method: PaymentMethod) {
   return method === 'UPI' || method === 'BANK_TRANSFER' || method === 'CHEQUE';
 }
 
+/** Official UPI VPA for this dojo (static QR matches this ID). */
+const UPI_VPA = 'myduj99341102@barodampay';
+
 export default function SubmitPayment() {
   const { feeRequestId } = useParams();
   const navigate = useNavigate();
@@ -42,7 +46,20 @@ export default function SubmitPayment() {
   const [unlockPassword, setUnlockPassword] = React.useState('');
   const [unlocking, setUnlocking] = React.useState(false);
   const [unlockError, setUnlockError] = React.useState<string | null>(null);
+  const [upiCopied, setUpiCopied] = React.useState(false);
+  const [upiCopyError, setUpiCopyError] = React.useState<string | null>(null);
   const qrImageSrc = `${import.meta.env.BASE_URL}upi-qr-bob.png`;
+
+  const copyUpiId = async () => {
+    setUpiCopyError(null);
+    try {
+      await navigator.clipboard.writeText(UPI_VPA);
+      setUpiCopied(true);
+      window.setTimeout(() => setUpiCopied(false), 2000);
+    } catch {
+      setUpiCopyError('Could not copy automatically — select the UPI ID above and copy manually.');
+    }
+  };
 
   React.useEffect(() => {
     let alive = true;
@@ -139,6 +156,7 @@ export default function SubmitPayment() {
         notesFromStudent: notes.trim() || null,
       });
 
+      window.dispatchEvent(new CustomEvent('fee-requests-updated'));
       navigate('/payments');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit payment');
@@ -190,10 +208,107 @@ export default function SubmitPayment() {
 
           <form onSubmit={onSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
             <div className="grid gap-6 lg:grid-cols-2">
-              <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">SCAN this QR to make payment</h3>
-                  <p className="mt-1 text-xs text-slate-600">Only UPI QR payment is enabled currently. Other payment modes are disabled.</p>
+              <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-2xl border-2 border-primary/50 bg-gradient-to-br from-primary/[0.12] via-white to-emerald-50/40 p-4 shadow-md ring-1 ring-primary/15 sm:p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">Start here — how paying works</p>
+                  <h3 className="mt-1.5 text-base font-bold leading-snug text-slate-900 sm:text-lg">
+                    Pay with the <span className="text-primary">QR code</span> or the <span className="text-primary">UPI ID</span> — pick whichever is easier
+                  </h3>
+                  <p className="mt-2 text-sm font-medium text-slate-700">
+                    Only UPI is accepted right now. Use one of the two ways below, then complete the form on the right.
+                  </p>
+                  <ol className="mt-4 space-y-2.5 border-t border-primary/20 pt-4 text-sm text-slate-800">
+                    <li className="flex gap-3">
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
+                        1
+                      </span>
+                      <span>
+                        <strong className="text-slate-900">Send the exact fee amount</strong> shown in the grey box above (same rupees and paise). Wrong amounts delay verification.
+                      </span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
+                        2
+                      </span>
+                      <span>
+                        Pay using <strong className="text-slate-900">Option A (QR)</strong> or <strong className="text-slate-900">Option B (UPI ID)</strong> on this page — steps are written under each.
+                      </span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
+                        3
+                      </span>
+                      <span>
+                        When the app shows <strong className="text-slate-900">success</strong>, note the{' '}
+                        <strong className="text-slate-900">UTR</strong> or <strong className="text-slate-900">transaction ID</strong>, enter it under{' '}
+                        <strong className="text-slate-900">Reference</strong> on the right, and click <strong className="text-slate-900">Submit for review</strong>.
+                      </span>
+                    </li>
+                  </ol>
+                </div>
+
+                <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50/90 p-4 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <QrCode className="mt-0.5 size-5 shrink-0 text-emerald-700" aria-hidden />
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-emerald-950">Option A — Scan the QR code</h4>
+                      <p className="mt-1 text-xs font-medium text-emerald-900/90">Best if you use Google Pay, PhonePe, Paytm, or BHIM on your phone.</p>
+                      <ol className="mt-3 list-decimal space-y-2 pl-4 text-sm text-emerald-950/95">
+                        <li>Scroll down and <strong>unlock the QR</strong> with your login password when asked.</li>
+                        <li>Open your UPI app and tap <strong>Scan QR</strong> (wording may be “Scan” or “QR”).</li>
+                        <li>
+                          <strong>Another phone / computer screen:</strong> point the camera at the QR on this page.{' '}
+                          <strong>Same phone:</strong> use <strong>Download QR image</strong> after unlock, open the photo, and scan from the app if your bank allows.
+                        </li>
+                        <li>
+                          Check that the <strong>amount matches</strong> the fee above, then confirm payment. Keep the app’s success screen for your UTR if needed.
+                        </li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border-l-4 border-blue-600 bg-blue-50/90 p-4 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <Wallet className="mt-0.5 size-5 shrink-0 text-blue-700" aria-hidden />
+                    <div className="min-w-0">
+                      <h4 className="text-sm font-bold text-blue-950">Option B — Pay using the UPI ID</h4>
+                      <p className="mt-1 text-xs font-medium text-blue-900/90">Use this if you prefer typing or pasting an address instead of scanning.</p>
+                      <ol className="mt-3 list-decimal space-y-2 pl-4 text-sm text-blue-950/95">
+                        <li>
+                          Copy the <strong>UPI ID</strong> below (or type it carefully — one wrong character sends money elsewhere).
+                        </li>
+                        <li>
+                          In your app, choose <strong>Send money</strong>, <strong>Pay to UPI ID</strong>, or similar — not “Scan QR”.
+                        </li>
+                        <li>
+                          Paste or enter the ID, enter the <strong>same amount</strong> as this fee, add a short note if you like, then pay.
+                        </li>
+                        <li>After success, use the <strong>UTR / transaction ID</strong> in the form on the right.</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border-2 border-slate-300 bg-white p-3 shadow-sm">
+                  <div className="text-xs font-bold uppercase tracking-wide text-slate-600">UPI ID (same as on the QR)</div>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                    <input
+                      readOnly
+                      value={UPI_VPA}
+                      aria-label="UPI payment address"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono font-semibold text-slate-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={copyUpiId}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/25 hover:bg-primary/90"
+                    >
+                      <Copy className="size-4 shrink-0" />
+                      {upiCopied ? 'Copied!' : 'Copy UPI ID'}
+                    </button>
+                  </div>
+                  {upiCopyError ? <p className="mt-2 text-xs font-medium text-amber-800">{upiCopyError}</p> : null}
                 </div>
 
                 <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-3">
@@ -232,14 +347,32 @@ export default function SubmitPayment() {
                     </button>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-                    QR unlocked. Complete payment, then submit payment details in the Payment Info Section.
+                  <div className="space-y-2">
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                      QR unlocked. Complete payment, then submit payment details in the Payment Info Section.
+                    </div>
+                    <a
+                      href={qrImageSrc}
+                      download="mdpl-upi-qr.png"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 sm:w-auto"
+                    >
+                      <Download className="size-4" />
+                      Download QR image
+                    </a>
+                    <p className="text-[11px] text-slate-500">
+                      Save the image, then open it in Photos and scan from your UPI app — useful when paying from the same phone.
+                    </p>
                   </div>
                 )}
               </section>
 
               <section className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-900">Payment Info Section</h3>
+                <div className="rounded-xl border-2 border-amber-300/80 bg-amber-50 px-3 py-3 text-sm text-amber-950 shadow-sm">
+                  <strong className="font-bold">After you pay:</strong> copy the <strong>UTR</strong> or{' '}
+                  <strong>transaction ID</strong> from your UPI app’s success screen and enter it in{' '}
+                  <strong>Reference</strong> below. That is how we match your payment to this fee.
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <div className="text-sm font-semibold text-slate-900 mb-1">Payment method</div>

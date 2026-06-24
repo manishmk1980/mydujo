@@ -14,6 +14,9 @@ export interface Instructor {
   city?: string;
   state?: string;
   profilePhotoUrl?: string;
+  trainingCenterId?: string | null;
+  trainingCenterName?: string | null;
+  preferredDiscipline?: string | null;
   isActive: boolean;
   canLogin: boolean;
 }
@@ -117,7 +120,8 @@ export const instructorService = {
 
     if (!res.ok) throw new Error(`Failed to fetch instructors: ${res.status}`);
     const data = await res.json();
-    return (data.instructors || []) as (Instructor & {
+    const list = Array.isArray(data) ? data : (data.instructors || []);
+    return list as (Instructor & {
       _count?: { students: number; classes: number },
       user?: { id: string, email: string }
     })[];
@@ -133,6 +137,10 @@ export const instructorService = {
     bio?: string;
     city?: string;
     state?: string;
+    trainingCenterId?: string;
+    trainingCenterName?: string;
+    preferredDiscipline?: string;
+    profilePhotoUrl?: string;
     isActive?: boolean;
     canLogin?: boolean;
     password?: string;
@@ -227,6 +235,6 @@ export const instructorService = {
     if (!res.ok) throw new Error(`Failed to fetch instructors: ${res.status}`);
 
     const data = await res.json();
-    return (data.instructors || []) as any[];
+    return (Array.isArray(data) ? data : (data.instructors || [])) as any[];
   },
 };

@@ -1,50 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { motion } from 'motion/react';
 import { Award, Star, BookOpen, ShieldCheck } from 'lucide-react';
 import { AspectRatio } from '../components/ui/aspect-ratio';
-
-const instructors = [
-  {
-    name: 'Sensei Vikram Rathore',
-    role: 'Chief Instructor',
-    rank: '5th Dan Black Belt, Shotokan Karate',
-    bio: 'With over 25 years of experience in traditional Shotokan Karate, Sensei Vikram has trained thousands of students across India. He is a certified referee and active mentor for district-level coaches.',
-    expertise: ['Traditional Kata', 'Advanced Kumite', 'Dojo Management'],
-    image: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?auto=format&fit=crop&w=800&q=80',
-    achievements: 'National Gold Medalist (2005-2010), India'
-  },
-  {
-    name: 'Sempai Anjali Sharma',
-    role: 'Senior Instructor',
-    rank: '3rd Dan Black Belt, Judo',
-    bio: 'Anjali is a former national-level Judo champion. She specializes in ground techniques and throwing mechanics, and leads women-focused batches in major Indian cities.',
-    expertise: ['Ne-waza (Groundwork)', 'Nage-waza (Throwing)', 'Women\'s Self Defense'],
-    image: 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&w=800&q=80',
-    achievements: 'South Asian Games Silver Medalist'
-  },
-  {
-    name: 'Sensei Rajesh Kumar',
-    role: 'Head of Self Defense',
-    rank: '4th Dan Black Belt, Krav Maga & Karate',
-    bio: 'Sensei Rajesh brings a practical approach to martial arts. He has worked with security agencies and corporate groups in India, teaching realistic self-defense scenarios and situational awareness.',
-    expertise: ['Krav Maga', 'Street Self Defense', 'Tactical Training'],
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
-    achievements: 'Certified Tactical Combat Instructor'
-  },
-  {
-    name: 'Sempai Rohan Deshmukh',
-    role: 'Junior Instructor',
-    rank: '2nd Dan Black Belt, Karate',
-    bio: 'Rohan is our lead instructor for kids programs. His energetic and patient approach makes him a favorite among young learners, with a focus on discipline through structured fun.',
-    expertise: ['Youth Programs', 'Basic Kihon', 'Agility Training'],
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80',
-    achievements: 'Best Youth Coach Award 2023'
-  }
-];
+import { instructorService } from '../services/instructorService';
 
 export default function Instructors() {
+  const [instructors, setInstructors] = useState<any[]>([]);
+
+  useEffect(() => {
+    instructorService
+      .getAllInstructors()
+      .then((data) => setInstructors(Array.isArray(data) ? data : []))
+      .catch(() => setInstructors([]));
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Header />
@@ -71,7 +42,7 @@ export default function Instructors() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {instructors.map((instructor, index) => (
             <motion.div
-              key={instructor.name}
+              key={instructor.id || `${instructor.fullName || instructor.full_name}-${index}`}
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
@@ -81,27 +52,27 @@ export default function Instructors() {
               <div className="lg:w-2/5 relative">
                 <AspectRatio ratio={4 / 5}>
                   <img
-                    src={instructor.image}
-                    alt={instructor.name}
+                    src={instructor.profilePhotoUrl || instructor.profile_photo_url || 'https://picsum.photos/seed/instructor-default/800/1000'}
+                    alt={instructor.fullName || instructor.full_name}
                     className="w-full h-full object-cover"
                   />
                 </AspectRatio>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent lg:hidden"></div>
                 <div className="absolute bottom-4 left-4 text-white lg:hidden">
                   <p className="text-xs font-bold uppercase tracking-widest text-primary">{instructor.role}</p>
-                  <h3 className="text-xl font-bold">{instructor.name}</h3>
+                  <h3 className="text-xl font-bold">{instructor.fullName || instructor.full_name}</h3>
                 </div>
               </div>
 
               <div className="lg:w-3/5 p-8 flex flex-col">
                 <div className="hidden lg:block mb-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">{instructor.role}</p>
-                  <h3 className="text-2xl font-bold text-slate-900">{instructor.name}</h3>
-                  <p className="text-sm font-semibold text-slate-500">{instructor.rank}</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Instructor</p>
+                  <h3 className="text-2xl font-bold text-slate-900">{instructor.fullName || instructor.full_name}</h3>
+                  <p className="text-sm font-semibold text-slate-500">{instructor.email || 'MDPL Instructor'}</p>
                 </div>
 
                 <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                  {instructor.bio}
+                  {instructor.bio || 'Dedicated martial arts trainer focused on student growth and discipline.'}
                 </p>
 
                 <div className="space-y-4 mt-auto">
@@ -110,7 +81,10 @@ export default function Instructors() {
                       <Star className="size-3 text-primary" /> Expertise
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {instructor.expertise.map(skill => (
+                      {[
+                        instructor.preferredDiscipline || instructor.preferred_discipline || 'General',
+                        instructor.trainingCenterName || instructor.training_center_name || 'Training Center',
+                      ].map((skill: string) => (
                         <span key={skill} className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-full uppercase">
                           {skill}
                         </span>
@@ -120,7 +94,7 @@ export default function Instructors() {
 
                   <div className="pt-4 border-t border-slate-50 flex items-center gap-3">
                     <Award className="size-5 text-primary shrink-0" />
-                    <p className="text-xs font-bold text-slate-700">{instructor.achievements}</p>
+                    <p className="text-xs font-bold text-slate-700">{instructor.trainingCenterName || instructor.training_center_name || 'Certified Instructor'}</p>
                   </div>
                 </div>
               </div>

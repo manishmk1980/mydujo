@@ -55,6 +55,7 @@ export default function MyFees() {
         setRequests(feeRows);
         setPayments(paymentRows);
         setError(null);
+        window.dispatchEvent(new CustomEvent('fee-requests-updated'));
       } catch (e) {
         if (!alive) return;
         setError(e instanceof Error ? e.message : 'Failed to load fees');

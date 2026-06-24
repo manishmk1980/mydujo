@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   CalendarDays,
   Eye,
+  Loader2,
   Pencil,
   Plus,
   RefreshCw,
@@ -55,8 +56,11 @@ function formatDateWithOrdinal(dateStr?: string | null) {
   return `${day}${suffix} ${monthYear}`;
 }
 
-function formatRequestedBy() {
-  return 'Admin';
+function formatRequestedBy(displayName?: string | null, email?: string | null) {
+  const normalizedDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
+  if (normalizedDisplayName) return normalizedDisplayName;
+  const normalized = typeof email === 'string' ? email.trim() : '';
+  return normalized || 'Admin';
 }
 
 function toStatusLabel(status: string) {
@@ -89,25 +93,75 @@ function parseDateParts(isoDate: string) {
   };
 }
 
+/** Calendar date in local timezone as YYYY-MM-DD (avoids UTC off-by-one from toISOString). */
 function buildDateFromParts(year: number, monthIndex: number, day: number) {
-  const dayInRange = Math.max(1, Math.min(31, day));
-  const dt = new Date(Date.UTC(year, monthIndex, dayInRange));
-  const isSameMonth = dt.getUTCMonth() === monthIndex;
-  if (!isSameMonth) {
-    const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-    return new Date(Date.UTC(year, monthIndex, Math.min(dayInRange, lastDay))).toISOString().slice(0, 10);
-  }
-  return dt.toISOString().slice(0, 10);
+  const max = getDaysInMonth(year, monthIndex);
+  const dayInRange = Math.max(1, Math.min(max, day));
+  const dt = new Date(year, monthIndex, dayInRange);
+  const y = dt.getFullYear();
+  const m = dt.getMonth();
+  const d = dt.getDate();
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 function getDaysInMonth(year: number, monthIndex: number) {
-  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function startOfLocalDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function addLocalDays(d: Date, n: number) {
+  const t = startOfLocalDay(d);
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate() + n);
+}
+
+function defaultDueDatePartsAfterDays(daysFromToday: number) {
+  const t = addLocalDays(new Date(), daysFromToday);
+  return { year: t.getFullYear(), monthIndex: t.getMonth(), day: t.getDate() };
+}
+
+/** Day-of-month numbers that are on or after today (local) for the given calendar month. */
+function getValidDueDayNumbers(year: number, monthIndex: number, todayStart: Date) {
+  const max = getDaysInMonth(year, monthIndex);
+  const out: number[] = [];
+  for (let d = 1; d <= max; d += 1) {
+    const cand = new Date(year, monthIndex, d);
+    if (cand >= todayStart) out.push(d);
+  }
+  return out;
 }
 
 const MONTH_OPTIONS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
+
+const FEE_TYPE_OPTIONS = [
+  { id: 'WHITE_BELT', label: 'White Belt', amountRupees: 200 },
+  { id: 'COLOUR_BELT', label: 'Colour Belt', amountRupees: 300 },
+  { id: 'BLACK_BELT', label: 'Black Belt', amountRupees: 500 },
+] as const;
+
+type FeeTypeOptionId = typeof FEE_TYPE_OPTIONS[number]['id'];
+
+function normalizeBeltGrade(value?: string | null): FeeTypeOptionId | null {
+  if (value === 'WHITE_BELT' || value === 'COLOUR_BELT' || value === 'BLACK_BELT') return value;
+  return null;
+}
+
+function getAmountByBeltGrade(value?: string | null): number | null {
+  const belt = normalizeBeltGrade(value);
+  const option = FEE_TYPE_OPTIONS.find((opt) => opt.id === belt);
+  return option ? option.amountRupees : null;
+}
+
+function formatBeltGradeLabel(value?: string | null) {
+  const belt = normalizeBeltGrade(value);
+  const option = FEE_TYPE_OPTIONS.find((opt) => opt.id === belt);
+  return option?.label ?? 'No Belt';
+}
 
 export default function AdminFeeRequests() {
   const [searchParams] = useSearchParams();
@@ -121,15 +175,20 @@ export default function AdminFeeRequests() {
   const [selectedStudentIds, setSelectedStudentIds] = React.useState<string[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = React.useState('');
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+  const [isSubmittingCreate, setIsSubmittingCreate] = React.useState(false);
   const [detailsItem, setDetailsItem] = React.useState<FeeRequestDTO | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<FeeRequestDTO | null>(null);
   const now = new Date();
-  const [monthIndex, setMonthIndex] = React.useState(now.getMonth());
-  const [year, setYear] = React.useState(now.getFullYear());
-  const [dueDay, setDueDay] = React.useState(1);
+  const initialDue = defaultDueDatePartsAfterDays(10);
+  const [periodMonthIndex, setPeriodMonthIndex] = React.useState(now.getMonth());
+  const [periodYear, setPeriodYear] = React.useState(now.getFullYear());
+  const [dueYear, setDueYear] = React.useState(initialDue.year);
+  const [dueMonthIndex, setDueMonthIndex] = React.useState(initialDue.monthIndex);
+  const [dueDay, setDueDay] = React.useState(initialDue.day);
   const [amountRupees, setAmountRupees] = React.useState(2000);
-  const [status, setStatus] = React.useState<FeeRequestStatus>('DRAFT');
+  const [selectedFeeType, setSelectedFeeType] = React.useState<FeeTypeOptionId | ''>('');
+  const [status, setStatus] = React.useState<FeeRequestStatus>('ISSUED');
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editMonthIndex, setEditMonthIndex] = React.useState(now.getMonth());
   const [editYear, setEditYear] = React.useState(now.getFullYear());
@@ -140,6 +199,9 @@ export default function AdminFeeRequests() {
   React.useEffect(() => {
     const prefillStudentId = searchParams.get('studentId')?.trim();
     if (prefillStudentId) setStudentId(prefillStudentId);
+    if (prefillStudentId) {
+      setSelectedStudentIds((prev) => (prev.includes(prefillStudentId) ? prev : [prefillStudentId, ...prev]));
+    }
   }, [searchParams]);
 
   const loadStudents = async () => {
@@ -197,8 +259,14 @@ export default function AdminFeeRequests() {
     };
   }, [studentId, loadFeeRequests]);
 
-  const dueDate = React.useMemo(() => buildDateFromParts(year, monthIndex, dueDay), [year, monthIndex, dueDay]);
-  const feeTitle = React.useMemo(() => `Fee Request for: ${formatMonthYear(year, monthIndex)}`, [year, monthIndex]);
+  const dueDate = React.useMemo(
+    () => buildDateFromParts(dueYear, dueMonthIndex, dueDay),
+    [dueYear, dueMonthIndex, dueDay]
+  );
+  const feeTitle = React.useMemo(
+    () => `Fee Request for: ${formatMonthYear(periodYear, periodMonthIndex)}`,
+    [periodYear, periodMonthIndex]
+  );
   const dueDateForEdit = React.useMemo(
     () => buildDateFromParts(editYear, editMonthIndex, editDueDay),
     [editYear, editMonthIndex, editDueDay]
@@ -210,14 +278,33 @@ export default function AdminFeeRequests() {
 
   const yearOptions = React.useMemo(() => {
     const years: number[] = [];
-    for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 2; y += 1) years.push(y);
+    const y0 = new Date().getFullYear();
+    for (let y = y0 - 1; y <= y0 + 2; y += 1) years.push(y);
     return years;
-  }, [now]);
+  }, []);
+
+  const dueYearOptions = React.useMemo(() => {
+    const years: number[] = [];
+    const y0 = new Date().getFullYear();
+    for (let y = y0; y <= y0 + 3; y += 1) years.push(y);
+    return years;
+  }, []);
 
   const selectedStudents = React.useMemo(
     () => selectedStudentIds.map((id) => students.find((s) => s.id === id)).filter(Boolean) as DBStudent[],
     [selectedStudentIds, students]
   );
+  const selectedBelts = React.useMemo(
+    () => [...new Set(selectedStudents.map((s) => normalizeBeltGrade(s.belt_grade)).filter(Boolean))] as FeeTypeOptionId[],
+    [selectedStudents]
+  );
+  const hasMixedSelectedBelts = selectedBelts.length > 1;
+  const selectedStudentNameFromUrl = searchParams.get('studentName')?.trim() ?? '';
+  const highlightedStudent = React.useMemo(
+    () => (studentId.trim() ? students.find((s) => s.id === studentId.trim()) ?? null : null),
+    [studentId, students]
+  );
+  const highlightedStudentName = highlightedStudent?.full_name || selectedStudentNameFromUrl || '';
   const filteredStudents = React.useMemo(() => {
     const q = studentSearchQuery.trim().toLowerCase();
     if (!q) return students;
@@ -227,10 +314,36 @@ export default function AdminFeeRequests() {
     });
   }, [students, studentSearchQuery]);
 
-  const dayOptions = React.useMemo(() => {
-    const max = getDaysInMonth(year, monthIndex);
-    return Array.from({ length: max }, (_, i) => i + 1);
-  }, [year, monthIndex]);
+  const dueValidDays = React.useMemo(() => {
+    const t0 = startOfLocalDay(new Date());
+    return getValidDueDayNumbers(dueYear, dueMonthIndex, t0);
+  }, [dueYear, dueMonthIndex]);
+
+  React.useEffect(() => {
+    const t0 = startOfLocalDay(new Date());
+    let y = dueYear;
+    let m = dueMonthIndex;
+    let days = getValidDueDayNumbers(y, m, t0);
+    let guard = 0;
+    while (days.length === 0 && guard < 48) {
+      guard += 1;
+      m += 1;
+      if (m > 11) {
+        m = 0;
+        y += 1;
+      }
+      days = getValidDueDayNumbers(y, m, t0);
+    }
+    if (guard > 0 && days.length > 0) {
+      setDueYear(y);
+      setDueMonthIndex(m);
+      setDueDay(days[0]!);
+      return;
+    }
+    if (days.length > 0 && !days.includes(dueDay)) {
+      setDueDay(days[0]!);
+    }
+  }, [dueYear, dueMonthIndex, dueDay]);
 
   const editDayOptions = React.useMemo(() => {
     const max = getDaysInMonth(editYear, editMonthIndex);
@@ -238,14 +351,22 @@ export default function AdminFeeRequests() {
   }, [editYear, editMonthIndex]);
 
   React.useEffect(() => {
-    const max = getDaysInMonth(year, monthIndex);
-    if (dueDay > max) setDueDay(max);
-  }, [year, monthIndex, dueDay]);
-
-  React.useEffect(() => {
     const max = getDaysInMonth(editYear, editMonthIndex);
     if (editDueDay > max) setEditDueDay(max);
   }, [editYear, editMonthIndex, editDueDay]);
+
+  React.useEffect(() => {
+    if (selectedStudents.length === 0) return;
+    if (hasMixedSelectedBelts) return;
+
+    const belt = selectedBelts[0];
+    if (!belt) return;
+    const amount = getAmountByBeltGrade(belt);
+    if (!amount) return;
+
+    setSelectedFeeType(belt);
+    setAmountRupees(amount);
+  }, [selectedStudents, selectedBelts, hasMixedSelectedBelts]);
 
   return (
     <PageContainer>
@@ -260,14 +381,31 @@ export default function AdminFeeRequests() {
           <div className="text-sm font-bold text-slate-900">Create fee request</div>
           <div className="text-xs text-slate-500">Generate requests for one or many students.</div>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Create Fee Request
-        </button>
+        <div className="flex items-center gap-2">
+          {highlightedStudentName ? (
+            <div className="inline-flex max-w-[280px] items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 truncate">
+              <UserPlus className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{highlightedStudentName}</span>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              const n = new Date();
+              const d = defaultDueDatePartsAfterDays(10);
+              setPeriodMonthIndex(n.getMonth());
+              setPeriodYear(n.getFullYear());
+              setDueYear(d.year);
+              setDueMonthIndex(d.monthIndex);
+              setDueDay(d.day);
+              setIsCreateOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Create Fee Request
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white">
@@ -324,7 +462,7 @@ export default function AdminFeeRequests() {
                           <>
                       <td className="px-4 py-3 font-medium text-slate-900">{r.student_name ?? 'Unknown'}</td>
                       <td className="px-4 py-3 text-slate-600">{r.student_email ?? 'N/A'}</td>
-                      <td className="px-4 py-3 text-slate-700">{formatFeeRequestPeriod(r.due_date)}</td>
+                      <td className="px-4 py-3 text-slate-700">{r.title || formatFeeRequestPeriod(r.due_date)}</td>
                       <td className="px-4 py-3 text-slate-700">{formatDateWithOrdinal(r.due_date)}</td>
                       <td className="px-4 py-3 text-slate-700">
                         <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getFeeStatusBadgeClass(feeStatus)}`}>
@@ -336,7 +474,7 @@ export default function AdminFeeRequests() {
                           {toStatusLabel(paymentStatus)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{formatRequestedBy(r.created_by_email)}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatRequestedBy(r.created_by_display_name, r.created_by_email)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button
@@ -452,6 +590,11 @@ export default function AdminFeeRequests() {
                 <div>
                   <div className="text-base font-bold text-slate-900">Create Fee Request</div>
                   <div className="text-xs text-slate-500">Search and select one or more students.</div>
+                  {selectedStudents.length > 0 ? (
+                    <div className="mt-2 text-xs text-slate-600">
+                      Selected: <span className="font-semibold">{selectedStudents.map((s) => s.full_name).join(', ')}</span>
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -466,24 +609,35 @@ export default function AdminFeeRequests() {
                 className="grid gap-3 p-4 sm:grid-cols-2"
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  if (isSubmittingCreate) return;
                   try {
+                    setIsSubmittingCreate(true);
                     setError(null);
                     if (selectedStudentIds.length === 0) throw new Error('Please select at least one student');
                     if (!amountRupees || amountRupees <= 0) throw new Error('Amount must be greater than 0');
 
+                    const todayStart = startOfLocalDay(new Date());
+                    const dueAsLocal = startOfLocalDay(new Date(`${dueDate}T12:00:00`));
+                    if (dueAsLocal < todayStart) {
+                      throw new Error('Due date cannot be in the past');
+                    }
+
                     const payload = {
                       title: feeTitle,
-                      amountPaise: Math.round(amountRupees * 100),
                       dueDate,
                       status,
                     };
                     const results = await Promise.allSettled(
-                      selectedStudentIds.map((sid) =>
-                        feesService.createFeeRequest({
+                      selectedStudentIds.map((sid) => {
+                        const student = students.find((s) => s.id === sid);
+                        const autoAmountRupees = getAmountByBeltGrade(student?.belt_grade);
+                        const finalAmountRupees = autoAmountRupees ?? amountRupees;
+                        return feesService.createFeeRequest({
                           studentId: sid,
+                          amountPaise: Math.round(finalAmountRupees * 100),
                           ...payload,
-                        })
-                      )
+                        });
+                      })
                     );
                     const failed = results.filter((r) => r.status === 'rejected');
                     await loadFeeRequests(studentId);
@@ -496,6 +650,8 @@ export default function AdminFeeRequests() {
                     setStudentSearchQuery('');
                   } catch (e) {
                     setError(e instanceof Error ? e.message : 'Failed to create fee request');
+                  } finally {
+                    setIsSubmittingCreate(false);
                   }
                 }}
               >
@@ -505,6 +661,7 @@ export default function AdminFeeRequests() {
                     <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <input
                       value={studentSearchQuery}
+                      disabled={isSubmittingCreate}
                       onChange={(ev) => setStudentSearchQuery(ev.target.value)}
                       className="w-full rounded-lg border border-slate-200 pl-9 pr-3 py-2 text-sm"
                       placeholder="Search by name, email or student ID..."
@@ -521,6 +678,7 @@ export default function AdminFeeRequests() {
                             <input
                               type="checkbox"
                               checked={checked}
+                              disabled={isSubmittingCreate}
                               onChange={(ev) => {
                                 setSelectedStudentIds((prev) => {
                                   if (ev.target.checked) return prev.includes(s.id) ? prev : [...prev, s.id];
@@ -543,7 +701,7 @@ export default function AdminFeeRequests() {
                       {selectedStudents.map((s) => (
                         <span key={s.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">
                           <UserPlus className="h-3.5 w-3.5" />
-                          {s.full_name}
+                          {s.full_name} ({formatBeltGradeLabel(s.belt_grade)})
                         </span>
                       ))}
                     </div>
@@ -560,47 +718,154 @@ export default function AdminFeeRequests() {
                   <input
                     type="number"
                     value={amountRupees}
-                    onChange={(ev) => setAmountRupees(Number(ev.target.value))}
+                    disabled={isSubmittingCreate}
+                    onChange={(ev) => {
+                      const nextAmount = Number(ev.target.value);
+                      setAmountRupees(nextAmount);
+                      const matched = FEE_TYPE_OPTIONS.find((opt) => opt.amountRupees === nextAmount);
+                      setSelectedFeeType(matched?.id ?? '');
+                    }}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                     min={1}
                   />
                   <div className="mt-1 text-xs text-slate-500">{formatINRFromPaise(Math.round(amountRupees * 100))}</div>
                 </label>
 
-                <label className="block">
-                  <div className="text-xs font-semibold text-slate-600 mb-1">Month</div>
-                  <select value={monthIndex} onChange={(ev) => setMonthIndex(Number(ev.target.value))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                    {MONTH_OPTIONS.map((m, idx) => (
-                      <option key={m} value={idx}>{m}</option>
+                <div className="block sm:col-span-2">
+                  <div className="text-xs font-semibold text-slate-600 mb-1">Quick fee type</div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {FEE_TYPE_OPTIONS.map((option) => (
+                      <label
+                        key={option.id}
+                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                          selectedFeeType === option.id
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="quickFeeType"
+                          checked={selectedFeeType === option.id}
+                          disabled={isSubmittingCreate}
+                          onChange={() => {
+                            setSelectedFeeType(option.id);
+                            setAmountRupees(option.amountRupees);
+                          }}
+                        />
+                        <span className="font-medium">{option.label}: {option.amountRupees}/-</span>
+                      </label>
                     ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <div className="text-xs font-semibold text-slate-600 mb-1">Year</div>
-                  <select value={year} onChange={(ev) => setYear(Number(ev.target.value))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                    {yearOptions.map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <div className="text-xs font-semibold text-slate-600 mb-1">Date</div>
-                  <select value={dueDay} onChange={(ev) => setDueDay(Number(ev.target.value))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                    {dayOptions.map((d) => (
-                      <option key={`due-day-${d}`} value={d}>{d}</option>
-                    ))}
-                  </select>
-                  <div className="mt-1 text-xs text-slate-500 inline-flex items-center gap-1">
-                    <CalendarDays className="h-3.5 w-3.5" /> Due date: {formatDateForLabel(dueDate)}
                   </div>
-                </label>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {hasMixedSelectedBelts
+                      ? 'Mixed belt grades selected: fee amount is auto-assigned per student during generation.'
+                      : 'Fee amount auto-fills from selected student belt grade when available.'}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <div className="text-xs font-semibold text-slate-600 mb-2">Fee period (title)</div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <div className="text-xs font-semibold text-slate-500 mb-1">Month</div>
+                      <select
+                        value={periodMonthIndex}
+                        disabled={isSubmittingCreate}
+                        onChange={(ev) => setPeriodMonthIndex(Number(ev.target.value))}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        {MONTH_OPTIONS.map((m, idx) => (
+                          <option key={m} value={idx}>{m}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <div className="text-xs font-semibold text-slate-500 mb-1">Year</div>
+                      <select
+                        value={periodYear}
+                        disabled={isSubmittingCreate}
+                        onChange={(ev) => setPeriodYear(Number(ev.target.value))}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        {yearOptions.map((y) => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <div className="text-xs font-semibold text-slate-600 mb-2">Due date</div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="block">
+                      <div className="text-xs font-semibold text-slate-500 mb-1">Month</div>
+                      <select
+                        value={dueMonthIndex}
+                        disabled={isSubmittingCreate}
+                        onChange={(ev) => setDueMonthIndex(Number(ev.target.value))}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        {MONTH_OPTIONS.map((m, idx) => {
+                          const cy = new Date().getFullYear();
+                          const cm = new Date().getMonth();
+                          const monthDisabled = dueYear < cy || (dueYear === cy && idx < cm);
+                          return (
+                            <option key={`due-m-${m}`} value={idx} disabled={monthDisabled}>
+                              {m}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <div className="text-xs font-semibold text-slate-500 mb-1">Year</div>
+                      <select
+                        value={dueYear}
+                        disabled={isSubmittingCreate}
+                        onChange={(ev) => setDueYear(Number(ev.target.value))}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        {dueYearOptions.map((y) => (
+                          <option key={`due-y-${y}`} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <div className="text-xs font-semibold text-slate-500 mb-1">Day</div>
+                      <select
+                        value={dueDay}
+                        disabled={isSubmittingCreate || dueValidDays.length === 0}
+                        onChange={(ev) => setDueDay(Number(ev.target.value))}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      >
+                        {dueValidDays.map((d) => (
+                          <option key={`due-day-${d}`} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 inline-flex flex-wrap items-start gap-1">
+                    <CalendarDays className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      Selected: <span className="font-medium text-slate-700">{formatDateForLabel(dueDate)}</span>
+                      {' · '}
+                      Today:{' '}
+                      {formatDateForLabel(
+                        buildDateFromParts(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
+                      )}
+                      {' · '}
+                      Opens with due date 10 days from today (no past dates).
+                    </span>
+                  </div>
+                </div>
 
                 <label className="block sm:col-span-2">
                   <div className="text-xs font-semibold text-slate-600 mb-1">Status</div>
                   <select
                     value={status}
+                    disabled={isSubmittingCreate}
                     onChange={(ev) => setStatus(ev.target.value as FeeRequestStatus)}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   >
@@ -616,16 +881,27 @@ export default function AdminFeeRequests() {
                   <button
                     type="button"
                     className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    disabled={isSubmittingCreate}
                     onClick={() => setIsCreateOpen(false)}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+                    disabled={isSubmittingCreate}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    <Plus className="h-4 w-4" />
-                    Generate Fee Requests
+                    {isSubmittingCreate ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Generate Fee Requests
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -661,7 +937,7 @@ export default function AdminFeeRequests() {
                   <div><span className="font-semibold text-slate-900">Fee Request For:</span> {formatFeeRequestPeriod(detailsItem.due_date)}</div>
                   <div><span className="font-semibold text-slate-900">Due Date:</span> {formatDateWithOrdinal(detailsItem.due_date)}</div>
                   <div><span className="font-semibold text-slate-900">Amount:</span> {formatINRFromPaise(detailsItem.amount_paise)}</div>
-                  <div><span className="font-semibold text-slate-900">Requested By:</span> Admin</div>
+                  <div><span className="font-semibold text-slate-900">Requested By:</span> {formatRequestedBy(detailsItem.created_by_display_name, detailsItem.created_by_email)}</div>
                   <div>
                     <span className="font-semibold text-slate-900">Fee Status:</span>{' '}
                     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${getFeeStatusBadgeClass(feeStatus)}`}>

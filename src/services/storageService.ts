@@ -82,6 +82,13 @@ async function preparePaymentProof(file: File | Blob): Promise<{ blob: Blob; mim
 }
 
 export const storageService = {
+  buildInstructorPhotoPath(filename: string, onboarding = false): string {
+    return onboarding ? `instructors/onboarding/${filename}` : `instructors/${filename}`;
+  },
+  buildDisciplineImagePath(filename: string): string {
+    return `discipline-options/${filename}`;
+  },
+
   async uploadProfilePhoto(file: File | Blob, path: string): Promise<{ path: string }> {
     const content = await blobToBase64(file);
     const res = await fetch(`${API_BASE}/upload/profile-photo`, {
@@ -96,6 +103,22 @@ export const storageService = {
     }
     const data = await res.json();
     return { path: (data as { url?: string }).url ? path : path };
+  },
+
+  async uploadProfilePhotoFromUrl(sourceUrl: string, path: string): Promise<{ url: string }> {
+    const res = await fetch(`${API_BASE}/upload/profile-photo-from-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ path, sourceUrl }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error((data as { error?: string }).error ?? 'Import from URL failed');
+    }
+    const url = (data as { url?: string }).url;
+    if (!url) throw new Error('Import from URL failed: missing url');
+    return { url };
   },
 
   async uploadPaymentProof(file: File | Blob, path: string): Promise<{ url: string }> {

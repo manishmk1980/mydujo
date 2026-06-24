@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -22,8 +22,18 @@ import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { AspectRatio } from '../components/ui/aspect-ratio';
 import mdplHeroVideo from '@/assets/video/mdpl-vid1.webm';
+import { metaService, type DisciplineOption } from '../services/metaService';
 
 export default function LandingPage() {
+  const [disciplines, setDisciplines] = useState<DisciplineOption[]>([]);
+
+  useEffect(() => {
+    metaService
+      .getDisciplines()
+      .then((data) => setDisciplines((data || []).slice(0, 2)))
+      .catch(() => setDisciplines([]));
+  }, []);
+
   return (
     <div className="min-h-screen bg-background-light">
       <Header />
@@ -54,12 +64,6 @@ export default function LandingPage() {
                 <Link to="/checkout" className="px-8 py-4 bg-slate-200 text-slate-900 rounded-xl font-bold text-lg hover:bg-slate-300 transition-colors">
                   Pay Fee
                 </Link>
-              </div>
-              <div className="flex items-center gap-4 mt-2">
-                <button className="flex items-center gap-2 text-primary font-bold hover:underline">
-                  <ChevronRight className="size-5" />
-                  Log Today's Attendance
-                </button>
               </div>
             </motion.div>
 
@@ -153,28 +157,26 @@ export default function LandingPage() {
               </Link>
             </div>
             <div className="grid md:grid-cols-2 gap-8">
-              <div className="relative overflow-hidden rounded-3xl group">
-                <AspectRatio ratio={16 / 9}>
-                  <img className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyP9ZQeR-hSBehsWtYh8TPSjSSyIhM6uPCXnNIf6aJ6zb6LXsbj_5rw4rEMqoHJuC2kY7rhJOe46Z6BnvYlV4yj8qTLNJHStvy2AVyVNKp_iAR2E9-C7EUzNIx4lBnPaITEW2mEzXVMPSSplxURqBEu8RhPj89L4I50ckEzZe5PDH3fKrEPZabtrZYc13jSp8xTIQ4PSifLqWLRrANzkeDcJkpHPDDY40XCdFbDaRVy3yH-X1Sraq0qJwmSFEA09-r1qzyaVARMFQ" alt="Karate" />
-                </AspectRatio>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent flex flex-col justify-end p-8">
-                  <div className="bg-primary px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-4">Striking Art</div>
-                  <h3 className="text-3xl font-bold text-white mb-2">Traditional Karate</h3>
-                  <p className="text-slate-200 mb-6 max-w-sm">Focus on precision strikes, katas, and mental discipline. Perfect for all ages.</p>
-                  <button className="px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-colors w-fit">Learn More</button>
+              {(disciplines.length > 0 ? disciplines : [
+                { value: 'karate_shotokan', label: 'Karate (Shotokan)' },
+                { value: 'judo_kodokan', label: 'Judo (Kodokan)' },
+              ]).map((discipline) => (
+                <div key={discipline.value} className="relative overflow-hidden rounded-3xl group">
+                  <AspectRatio ratio={16 / 9}>
+                    <img
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      src={discipline.imageUrl || discipline.image_url || `https://picsum.photos/seed/${discipline.value}/1200/800`}
+                      alt={discipline.label}
+                    />
+                  </AspectRatio>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent flex flex-col justify-end p-8">
+                    <div className="bg-primary px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-4">Discipline</div>
+                    <h3 className="text-3xl font-bold text-white mb-2">{discipline.label}</h3>
+                    <p className="text-slate-200 mb-6 max-w-sm">Structured training from beginner to advanced levels.</p>
+                    <button className="px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-colors w-fit">Learn More</button>
+                  </div>
                 </div>
-              </div>
-              <div className="relative overflow-hidden rounded-3xl group">
-                <AspectRatio ratio={16 / 9}>
-                  <img className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzEatoQoO855awH0yFUUej-JfDwEEds4FcHI-ZPkMha1QAdT3BJ1Br42Xcoi7eB-cLRSPF-07AxwaxIt1CNOZBSAst3BfiWoKEjAws4YaLfVRhVvZIdhTTIPny-GU-cDUnqwHbOm_tKi5aer-ju52w_K3_3MMi92JlNyuzDFs4lf-GD0BttuCrmOeI0MYh0gu4hv71z0BKa-7b2IHPaBbBdeXfRGlWo6eZYRsinXVmB3TpuSbjdCLwMlKu5qd85b-I4gq4B6yDUag" alt="Judo" />
-                </AspectRatio>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent flex flex-col justify-end p-8">
-                  <div className="bg-primary px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest w-fit mb-4">Grappling Art</div>
-                  <h3 className="text-3xl font-bold text-white mb-2">Kodokan Judo</h3>
-                  <p className="text-slate-200 mb-6 max-w-sm">Master the art of throws, joint locks, and ground control. Exceptional for self-defense.</p>
-                  <button className="px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-colors w-fit">Learn More</button>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>

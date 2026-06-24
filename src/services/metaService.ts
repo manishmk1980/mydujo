@@ -1,6 +1,10 @@
-import type { DisciplineType } from '../types/registration';
-
-export type DisciplineOption = { id?: string; value: string; label: string };
+export type DisciplineOption = {
+  id?: string;
+  value: string;
+  label: string;
+  image_url?: string | null;
+  imageUrl?: string | null;
+};
 
 import { API_BASE } from '../config';
 import { getAdminToken } from '../lib/authTokens';
@@ -32,12 +36,16 @@ export const metaService = {
     return (data.disciplines || []) as DisciplineOption[];
   },
 
-  async createDiscipline(payload: { value: string; label: string }) {
+  async createDiscipline(payload: { value: string; label: string; imageUrl?: string }) {
     const res = await fetch(`${API_BASE}/meta/disciplines`, {
       method: 'POST',
       headers: getAuthHeaders(),
       credentials: 'include',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        value: payload.value,
+        label: payload.label,
+        image_url: payload.imageUrl || null,
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

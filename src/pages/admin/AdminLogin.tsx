@@ -12,6 +12,7 @@ export default function AdminLogin() {
   const [submitting, setSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [securityNotice, setSecurityNotice] = useState('');
   const { login, isAdmin, loading: authLoading } = useAdminAuth();
   const navigate = useNavigate();
 
@@ -20,6 +21,14 @@ export default function AdminLogin() {
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberMe(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem('admin_security_notice');
+    if (notice) {
+      setSecurityNotice(notice);
+      sessionStorage.removeItem('admin_security_notice');
     }
   }, []);
 
@@ -75,6 +84,12 @@ export default function AdminLogin() {
               <div className="p-4 bg-red-900/30 text-red-400 rounded-2xl flex items-center gap-3 text-sm font-medium border border-red-800/50">
                 <AlertCircle className="size-5 shrink-0" />
                 {error}
+              </div>
+            )}
+            {securityNotice && (
+              <div className="p-4 bg-emerald-900/30 text-emerald-300 rounded-2xl flex items-center gap-3 text-sm font-medium border border-emerald-800/50">
+                <AlertCircle className="size-5 shrink-0" />
+                {securityNotice}
               </div>
             )}
 

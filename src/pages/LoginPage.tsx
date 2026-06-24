@@ -126,8 +126,11 @@ export default function LoginPage() {
               <Link to="/forgot-password" className="text-sm font-bold text-slate-400 hover:text-white">
                 Forgot password?
               </Link>
-              <Link to="/register" className="text-sm font-bold text-slate-400 hover:text-white">
-                Create account
+              <Link
+                to={role === 'instructor' ? '/instructor/register' : '/register'}
+                className="text-sm font-bold text-slate-400 hover:text-white"
+              >
+                Create {role === 'instructor' ? 'instructor' : 'student'} account
               </Link>
             </div>
 
